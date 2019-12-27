@@ -1,4 +1,5 @@
 UNAME := $(shell uname -r)
+KDIR := /home/dell/Documents/Firmware/linux-source-4.4.0/
 PWD := $(shell pwd)
 ADVMOD := adv_gpio_drv
 
@@ -7,7 +8,8 @@ obj-m := adv_gpio_drv.o
 default:
 	@cp ../mfd-ec/Module.symvers ./
 	@sleep 1
-	@make -C /lib/modules/${UNAME}/build SUBDIRS=${PWD} modules
+#	@make -C /lib/modules/${UNAME}/build SUBDIRS=${PWD} modules
+	@make -C $(KDIR) SUBDIRS=${PWD} modules
 
 install: default
 	$(shell if grep $(ADVMOD) /proc/modules > /dev/null ; then \

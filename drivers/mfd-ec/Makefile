@@ -5,12 +5,14 @@
 #
 
 UNAME := $(shell uname -r)
+KDIR := /home/dell/Documents/Firmware/linux-source-4.4.0/
 PWD := $(shell pwd)
 ADVMOD := adv_ec
 obj-m := adv_ec.o
 
 default:
-	@make -C /lib/modules/$(UNAME)/build SUBDIRS=$(PWD) modules
+#	@make -C /lib/modules/$(UNAME)/build SUBDIRS=$(PWD) modules
+	@make -C $(KDIR) SUBDIRS=$(PWD) modules
 
 install: default
 	$(shell if grep $(ADVMOD) /proc/modules > /dev/null ; then \

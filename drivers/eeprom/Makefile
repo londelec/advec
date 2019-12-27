@@ -6,15 +6,17 @@
 
 obj-m := adv_eeprom_drv.o
 UNAME := $(shell uname -r)
+KDIR := /home/dell/Documents/Firmware/linux-source-4.4.0/
 PWD := $(shell pwd)
 ADVMOD := adv_eeprom_drv
 
 default:
 	@cp ../mfd-ec/Module.symvers ./
 	@sleep 1
-	@make -C /lib/modules/$(UNAME)/build SUBDIRS=$(PWD) modules
+#	@make -C /lib/modules/$(UNAME)/build SUBDIRS=$(PWD) modules
+	@make -C $(KDIR) SUBDIRS=$(PWD) modules
 
-install:default
+install: default
 	$(shell if grep $(ADVMOD) /proc/modules > /dev/null ; then \
 	 rmmod $(ADVMOD) ; fi)
 	$(shell [ -c /dev/$(ADVMOD) ] && rm -f /dev/$(ADVMOD))
