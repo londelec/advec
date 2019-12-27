@@ -1,0 +1,41 @@
+#
+# Makefile for the UNO DIO device drivers.
+#
+# Advantech eAutomation Division
+#
+
+obj-m := adv_led_drv.o
+UNAME := $(shell uname -r)
+PWD := $(shell pwd)
+ADVMOD := adv_led_drv
+
+default:
+	@cp ../mfd-ec/Module.symvers ./
+	@sleep 1
+	@make -C /lib/modules/$(UNAME)/build SUBDIRS=$(PWD) modules
+
+install: default
+	$(shell if grep $(ADVMOD) /proc/modules > /dev/null ; then \
+	 rmmod $(ADVMOD) ; fi)
+	@insmod $(ADVMOD).ko
+	@sleep 1
+	@rm -f /dev/watchdog
+	@if [ $$(awk '$$2=="adv_watchdog" {print $$1}' /proc/devices) ]; then \
+        mknod /dev/watchdog c $$(awk '$$2=="adv_watchdog" {print $$1}' /proc/devices) 0; \
+	fi
+		
+uninstall:
+	$(shell if grep $(ADVMOD) /proc/modules > /dev/null ; then \
+	 rmmod $(ADVMOD) ; fi)
+	$(shell [ -c /dev/advled ] && rm -f /dev/advled)
+	@echo ""
+
+clean:
+	@rm -f *.o
+	@rm -f *.ko
+	@rm -f *.mod.c
+	@rm -f .*.cmd
+	@rm -rf .tmp_versions
+	@rm -rf Module.*
+	@rm -rf *~
+	@rm -rf *order

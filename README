@@ -1,0 +1,186 @@
+============================================================================
+             Advantech EC driver
+             Installation Guide
+            For Linux Kernel 2.6.x / 3.x / 4.x
+        Copyright (C) 2018, Advantech Co., Ltd.
+============================================================================
+Contents
+
+1. Introduction
+2. Device support list
+3. Files
+4. Installation
+
+-----------------------------------------------------------------------------
+1. Introduction
+   
+   Advantech EC brightness, GPIO, LED, common, hwmon, WDT and eeprom Linux driver, 
+   supports UNO/TPC/APAX platform.
+    
+   This driver supports Linux Intel x86 hardware platform. 
+   Any problem occurs, please contact us at support@advantech.com.tw.
+-----------------------------------------------------------------------------
+   
+2. Device support list
+
+   Information and reference:
+   brightness: 
+      TPC-8100TR, TPC-651T-E3AE, TPC-1251T-E3AE, TPC-1551T-E3AE, TPC-1751T-E3AE, TPC-1051WP-E3AE, 
+      TPC-1551WP-E3AE, TPC-1782H-433AE, TPC-1581WP-433AE, TPC-1881WP-433AE, 
+	  TPC-B500-67xAE, TPC-B500-63xAE, TPC-B500-6CxAE, 
+      TPC-512xT-67xAE, TPC-515xT-67xAE, TPC-517xT-67xAE, TPC-518xT-67xAE, TPC-521xW-67xAE,
+      TPC-512xT-63xAE, TPC-515xT-63xAE, TPC-517xT-63xAE, TPC-518xT-63xAE, TPC-521xW-63xAE,
+      TPC-512xT-6CxAE, TPC-515xT-6CxAE, TPC-517xT-6CxAE, TPC-518xT-6CxAE, TPC-521xW-6CxAE
+      PR/VR4
+
+   GPIO: 
+      TPC-8100TR, UNO-1483G-434AE, UNO-1372G-E3AE, UNO-1372G-J021AE, UNO-1372G-J031AE, 
+	  UNO-2473G-JxAE, UNO-420
+	  
+   HWMON: 
+      TPC-8100TR, TPC-651T-E3AE, TPC-1251T-E3AE, TPC-1551T-E3AE, TPC-1751T-E3AE, TPC-1051WP-E3AE,
+      TPC-1551WP-E3AE, TPC-B500-67xAE, TPC-B500-63xAE, TPC-B500-6CxAE, 
+      TPC-512xT-67xAE, TPC-515xT-67xAE, TPC-517xT-67xAE, TPC-518xT-67xAE, TPC-521xW-67xAE,
+      TPC-512xT-63xAE, TPC-515xT-63xAE, TPC-517xT-63xAE, TPC-518xT-63xAE, TPC-521xW-63xAE,
+      TPC-512xT-6CxAE, TPC-515xT-6CxAE, TPC-517xT-6CxAE, TPC-518xT-6CxAE, TPC-521xW-6CxAE
+      UNO-1483G-434AE, UNO-2483G-434AE, UNO-3483G-374AE, UNO-1172A, UNO-1372G-E3AE, 
+      UNO-2271G-E2xAE, UNO-2271G-E02xAE, UNO-2473G-JxAE, UNO-2484G-673xAE, TPC-1782H-433AE, 
+      APAX-5580-433AE, APAX-5580-473AE, APAX-5580-4C3AE, ECU-4784, PR/VR4, UNO-3283G-674AE, 
+      UNO-3285G-674AE, UNO-1372G-J021AE, UNO-1372G-J031AE, UNO-2372G, UNO-420
+
+   WDT:
+      TPC-8100TR, TPC-651T-E3AE, TPC-1251T-E3AE, TPC-1551T-E3AE, TPC-1751T-E3AE, TPC-1051WP-E3AE, 
+      TPC-1551WP-E3AE, TPC-1581WP-433AE, TPC-1881WP-433AE, TPC-1782H-433AE, 
+      TPC-B500-67xAE, TPC-B500-63xAE, TPC-B500-6CxAE, PR/VR4, 
+      TPC-512xT-67xAE, TPC-515xT-67xAE, TPC-517xT-67xAE, TPC-518xT-67xAE, TPC-521xW-67xAE,
+      TPC-512xT-63xAE, TPC-515xT-63xAE, TPC-517xT-63xAE, TPC-518xT-63xAE, TPC-521xW-63xAE,
+      TPC-512xT-6CxAE, TPC-515xT-6CxAE, TPC-517xT-6CxAE, TPC-518xT-6CxAE, TPC-521xW-6CxAE,
+      UNO-1483G-434AE, UNO-2483G-434AE, UNO-3083G/3085G-D44E(EC wdt mini board), 
+      UNO-3083G/3085G-D64E(EC wdt mini board), UNO-3483G-374AE, UNO-1372G-E3AE, UNO-2271G-E2xAE,
+      UNO-2271G-E02xAE, UNO-2473G-JxAE, UNO-2484G-673xAE, UNO-3283G-674AE, UNO-3285G-674AE, 
+      UNO-2484G-633xAE, UNO-2484G-653xAE, UNO-2484G-673xAE, UNO-2484G-733xAE, UNO-2484G-753xAE, 
+      UNO-2484G-773xAE, UNO-1372G-J021AE, UNO-1372G-J031AE, UNO-2372G, UNO-420,
+      APAX-5580-433AE, APAX-5580-473AE, APAX-5580-4C3AE
+
+   LED: 
+      APAX-5580-433AE
+	  
+   COMMON-POWER:
+      UNO-3283G, UNO-3285G
+
+   COMMON-LED:
+      UNO-1372G-J021AE, UNO-1372G-J031AE
+
+   EEPROM: 
+      TPC-8100TR, TPC-651T-E3AE, TPC-1251T-E3AE, TPC-1551T-E3AE, TPC-1751T-E3AE, 
+      TPC-1051WP-E3AE, TPC-1551WP-E3AE, TPC-B500-67xAE, TPC-B500-63xAE, TPC-B500-6CxAE, 
+      TPC-512xT-67xAE, TPC-515xT-67xAE, TPC-517xT-67xAE, TPC-518xT-67xAE, TPC-521xW-67xAE,
+      TPC-512xT-63xAE, TPC-515xT-63xAE, TPC-517xT-63xAE, TPC-518xT-63xAE, TPC-521xW-63xAE,
+      TPC-512xT-6CxAE, TPC-515xT-6CxAE, TPC-517xT-6CxAE, TPC-518xT-6CxAE, TPC-521xW-6CxAE,
+      UNO-1483G-434AE, UNO-2483G-434AE, UNO-3483G-374AE, UNO-1372G-E3AE, UNO-2271G-E2xAE, 
+      UNO-2271G-E02xAE, UNO-2473G-JxAE, UNO-2484G-673xAE, TPC-1782H-433AE, APAX-5580-433AE, 
+      UNO-2484G-633xAE, UNO-2484G-653xAE, UNO-2484G-673xAE, UNO-2484G-733xAE, UNO-2484G-753xAE, 
+      UNO-2484G-773xAE, UNO-1372G-J021AE, UNO-1372G-J031AE, UNO-2372G, UNO-420,
+      APAX-5580-473AE, APAX-5580-4C3AE, ECU-4784, UNO-1172A(not support lock operation), 
+      PR/VR4, UNO-3283G-674AE, UNO-3285G-674AE, 
+
+----------------------------------------------------------------------------
+3. Files
+   The directory construction is:
+
+      +advec_v2.10
+      |
+      +--drivers                    // directory of the device driver
+      |       |
+      |       +--mfd-ec             // ec multifunctional driver, all the ec related device driver depends on it
+      |       |
+      |       +--brightness         // brightness driver, depends on mfd-ec
+      |       |
+      |       +--led                // led driver, depends on mfd-ec
+      |       |
+      |       +--common             // power status and some dio-led driver, depends on mfd-ec
+      |       |
+      |       +--gpio               // gpio driver, depends on mfd-ec
+      |       |
+      |       +--hwmon       	    // hwmon driver, depends on mfd-ec
+      |       |
+      |       +--watchdog	        // watchdog driver, depends on mfd-ec
+      |       |
+      |       +--eeprom	            // eeprom driver, depends on mfd-ec
+      |       |
+      |       +--Makefile           // Makefile for install the driver
+      |
+      +--example                    // directory of the demo example
+      |       |
+      |       +--Makefile           // Makefile for building the examples
+      |       |
+      |       +--test_brightness.c  // example for brightness	
+      |       |
+      |       +--test_led.c         // example for led
+      |       |
+      |       +--test_common.c      // example for power status and dio-led
+      |       |
+      |       +--test_gpio.c        // example for gpio
+      |       |
+      |       +--test_watchdog.c    // example for watchdog
+      |       |
+      |       +--test_eeprom.c      // example for eeprom
+      |       |
+      |       +--watchdog_daemon.c  // daemon for watchdog keep alive function
+      |       |
+      |       +--REAME              // README file for build and how to use the examples
+      |
+      |
+      +--README                     // README file for driver installation
+
+-----------------------------------------------------------------------------
+4. Installation
+   4.0 Login as root
+   
+   4.1 Executing the following instructions and uncompress the package.    
+            # tar -zxvf advec_source_v2.10.tar.gz
+            # cd advec_source_v2.10
+       
+   4.2 Driver
+
+      STEP1. Go to the driver directory
+            # cd drivers
+       
+      STEP2. Install driver
+            # make install
+      Please note :do as STEP2, seven drivers(mfd-ec, brightness, led, common, gpio, watchdog and hwmon) 
+                   will be installed. If you want to insert one of these drivers, please install 
+                   mfd-ec first(Because it provides symbols for these drivers) and create the device 
+                   node.
+      For example :if you want to install watchdog, please do as follow.
+            # cd advec_source_v2.10/driver/mfd-ec
+            # make install
+            # cd ../watchdog
+            # make install 
+            # rm /dev/watchdog
+            # mknod /dev/watchdog c $(cat /proc/devices |awk '$2=="adv_watchdog" {print $1}') 0
+	   
+   4.3 Example
+	
+       Please go to the example directory and refer to the README file.
+
+   4.4 Insmod drivers automatically.
+
+       Different systems have different settings for bootstrap process. This example is based on 
+       Ubuntu-16.04.1 64bit and suppose the driver code is stored in /usr/Advantech/.
+       Modify the /etc/rc.local, add the following cmd:
+       
+       /usr/Advantech/advec_source_v2.10/AdvLoader
+
+	   Then save and reboot system.
+
+-----------------------------------------------------------------------------
+5. Limitation
+   5.0 UNO-1372G-E3AE LED operation
+       Due to using the old EC firmware, UNO-1372G-E3AE LED operation was 
+       must be based on the EC GPIO driver.
+
+   5.1 UNO-420/1372G-E3AE DIO operation
+       Due to hardware structure, DI value will be getting 0 when input is high
+       and getting 1 when input is low.
+

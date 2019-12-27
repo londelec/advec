@@ -1,0 +1,100 @@
+============================================================================
+		     Advantech EC driver example
+             Installation & Using Guide
+            For Linux Kernel 2.6.x and 3.x
+		Copyright (C) 2015, Advantech Co., Ltd.
+============================================================================
+
+Example and usage
+
+1. These examples is for ec brightness, gpio, hwmon, watchdog, led, eeprom 
+and common.
+
+2. To build the examples, run
+	# make	
+============================================================================
+3. Brightness
+	The mfd-ec & brightness driver should be installed
+3.1 Set and get brightness
+	#./test_brightness min max setto
+	min: the minimum brightness value could be set
+	max: the maximum brightness value could be set
+	setto: the brightness value to be set
+	
+	For example:
+	#./test_brightness 2 8 5
+	The minimum brightness value could be set is level 2
+	The maximum brightness value could be set is level 8
+	set the brightness to level 5
+============================================================================
+4. GPIO
+	The mfd-ec & gpio driver should be installed
+4.1 Set and get GPIO status
+	#./test_gpio
+	(a) Follow the instruction to set the GPIO index
+	(b) Follow the instruction to set the GPIO direction
+	(c-1) Direction input: read the GPIO pin status
+	(c-2) Direction output: set the GPIO pin status to low or high
+============================================================================
+5. HWMON
+	The mfd-ec & hwmon driver should be installed
+5.1 Get HWMON data
+	First: Install lm-sensors tools.
+	Example:
+		Ubuntu: 
+		# sudo apt-get install lm-sensors
+		Redhat:
+		# yum install lm_sensors
+	Second: Run sensors.
+	# sensors
+============================================================================
+6. Watchdog
+	The mfd-ec & watchdog driver should be installed. The Advantech EC WDT an unit means 1 seconds, data 10 is 10 seconds.
+6.1 Set watchdog timeout and enable
+	#./test_watchdog -s timeout
+	Here the timeout is the seconds for watchdog time out.
+	
+	For example:
+	#./test_watchdog -s 10
+	After 10 seconds, watchdog will time out and then computer will reboot if user do not disable the watchdog within 10 seconds.
+   
+6.2 Disable watchdog
+	#./test_watchdog -d
+
+6.3 Enable watchdog
+	#./test_watchdog -e 
+
+6.4 Keep watchdog alive
+	#./watchdog_daemon
+============================================================================
+7. LED
+	The mfd-ec & led driver should be installed
+7.1 Set LED status
+	#./test_led -d device_id -t flash_type -r flash_rate
+	device_id range: 0xE1 ~ 0xE6
+	flash_type range: |    0    | 1  |  3   |    5   |   7  |   15   |
+	                  | DISABLE | ON | FAST | NORMAL | SLOW | MANUAL |
+	flash_rate range: | BIT F ~ BIT 6 (10 Bit) | BIT 5  | BIT 4  | BIT 3 ~ BIT 0 |
+	                  |         LedBit         | IntCtl | Enable |   Polarity    |
+	                  This parameter depends on [FLASH_TYPE] = MANUAL, the
+					  maximum value is 0x3FF.
+7.2 Get more help
+	#./test_led -h
+============================================================================
+8. EEPROM
+	The mfd-ec & eeprom driver should be installed
+8.1 Set and get eeprom values/status
+	#./test_eeprom
+	(1) Follow the instruction to read eeprom
+	(2) Follow the instruction to write eeprom
+	(3) Follow the instruction to lock eeprom
+	(4) Follow the instruction to unlock eeprom
+	(5) Follow the instruction to get lock status
+============================================================================
+9. COMMON
+	The mfd-ec & common driver should be installed
+9.1 Set and get power status
+	#./test_common
+9.2 Set and get dio-led values
+	#./test_common
+============================================================================

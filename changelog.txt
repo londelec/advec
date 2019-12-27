@@ -1,0 +1,123 @@
+ChangeLog of Advantech EC driver for Linux
+
+Version 1.00
+    Date 10/07/2014
+    create by Sun.Lang
+    mfd-ec			version: V1.00
+    brightness		version: V1.00
+    gpio			version: V1.00
+    watchdog		version: V1.00
+
+Version 2.00
+    Date 12/30/2015
+    create by Jiangwei.Zhu
+    mfd-ec                  version: V1.01
+    brightness              version: V1.01
+    gpio                    version: V1.01
+    watchdog                version: V1.01
+    hwmon                   version: V1.00
+Version 2.01
+    Date 03/04/2016
+    create by Jiangwei.Zhu
+    mfd-ec                  version: V1.02
+    brightness              version: V1.02
+    gpio                    version: V1.02
+    watchdog                version: V1.02
+    hwmon                   version: V1.01
+Version 2.02
+    Date 10/14/2016
+    create by Ji.Xu
+    mfd-ec                  version: V1.02
+    brightness              version: V1.03
+    gpio                    version: V1.03
+    watchdog                version: V1.03
+    hwmon                   version: V1.02
+    led                     version: V1.00
+Version 2.03
+    Date 08/10/2017
+    create by Ji.Xu
+    mfd-ec                  version: V1.03
+    brightness              version: V1.04
+    gpio                    version: V1.04
+    watchdog                version: V1.04
+    hwmon                   version: V1.03
+    led                     version: V1.00
+    eeprom					version: V1.00
+Version 2.04
+    Date 09/20/2017
+    create by Ji.Xu
+    mfd-ec                  version: V1.04
+    brightness              version: V1.04
+    gpio                    version: V1.04
+    watchdog                version: V1.05
+    hwmon                   version: V1.04
+    led                     version: V1.00
+    eeprom					version: V1.00
+Version 2.05
+    Date 10/23/2017
+    create by Ji.Xu
+    mfd-ec                  version: V1.05
+    brightness              version: V1.05
+    gpio                    version: V1.04
+    watchdog                version: V1.06
+    hwmon                   version: V1.05
+    led                     version: V1.00
+    eeprom					version: V1.00
+    power					version: V1.00
+Version 2.06
+    Date 11/16/2017
+    create by Zhang.Yang
+    mfd-ec                  version: V1.05
+    brightness              version: V1.05
+    gpio                    version: V1.05
+    watchdog                version: V1.07
+    hwmon                   version: V1.06
+    led                     version: V1.00
+    eeprom					version: V1.00
+    power					version: V1.00
+Version 2.07
+    Date 02/02/2018
+    create by Ji.Xu
+    mfd-ec                  version: V1.05
+    brightness              version: V1.06
+    gpio                    version: V1.05
+    watchdog                version: V1.08
+    hwmon                   version: V1.07
+    led                     version: V1.00
+    eeprom					version: V1.00
+    power					version: V1.00
+Version 2.08
+    Date 03/20/2018
+    create by Ji.Xu
+    mfd-ec                  version: V1.05
+    brightness              version: V1.07
+    gpio                    version: V1.06
+    watchdog                version: V1.09
+    hwmon                   version: V1.07
+    led                     version: V1.01
+    eeprom					version: V1.01
+    power					version: V1.01
+Version 2.09
+    Date 08/03/2018
+    create by Ji.Xu
+    mfd-ec                  version: V1.05
+    brightness              version: V1.08
+    gpio                    version: V1.06
+    watchdog                version: V1.09
+    hwmon                   version: V1.07
+    led                     version: V1.01
+    eeprom					version: V1.01
+    common					version: V1.00
+Version 2.10
+    Date 11/26/2018
+    create by Ji.Xu
+    mfd-ec                  version: V1.05
+    brightness              version: V1.08
+    gpio                    version: V1.07
+    watchdog                version: V1.10
+    hwmon                   version: V1.08
+    led                     version: V1.01
+    eeprom					version: V1.01
+    common					version: V1.00
+
+
