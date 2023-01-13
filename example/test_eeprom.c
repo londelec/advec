@@ -14,11 +14,11 @@
 // magic number refer to linux-source-4.4.0/Documentation/ioctl/ioctl-number.txt
 #define EEPROM_MAGIC	'g'
 #define IOCTL_COMMON_EC_I2C_GET_CONFIG				_IO(EEPROM_MAGIC, 0x30)
-#define IOCTL_COMMON_EC_I2C_TRANSFER				_IOWR(EEPROM_MAGIC, 0x31, pec_i2c_data)
+#define IOCTL_COMMON_EC_I2C_TRANSFER				_IOWR(EEPROM_MAGIC, 0x31, int)
 #define IOCTL_COMMON_EC_I2C_GET_FREQ				_IO(EEPROM_MAGIC, 0x32)
 #define IOCTL_COMMON_EC_I2C_SET_FREQ				_IO(EEPROM_MAGIC, 0x33)
-#define IOCTL_COMMON_EC_BARCODE_EEPROM_GET_CONFIG	_IOWR(EEPROM_MAGIC, 0x34, peeprom_config)
-#define IOCTL_COMMON_EC_BARCODE_EEPROM_SET_PROTECT	_IOWR(EEPROM_MAGIC, 0x35, pec_barcode_eeprom_protect_data)
+#define IOCTL_COMMON_EC_BARCODE_EEPROM_GET_CONFIG	_IOWR(EEPROM_MAGIC, 0x34, int)
+#define IOCTL_COMMON_EC_BARCODE_EEPROM_SET_PROTECT	_IOWR(EEPROM_MAGIC, 0x35, int)
 
 #define EC_DID_SMBOEM0          0x28	// 0x28	SMBOEM0,           	SMBUS/I2C. Smbus channel 0, EEPROM
 #define EC_DID_SMBOEM1          0x29	// 0x29	SMBOEM1,           	SMBUS/I2C. Smbus channel 1, External
@@ -389,7 +389,7 @@ bool eeprom_set_protect(int fd, ulong SalveAddr, bool bProtect, uchar *pBuffer, 
 
 	pprotectData = (pec_barcode_eeprom_protect_data) malloc(sizeof(ec_barcode_eeprom_protect_data));
 	if (pprotectData == NULL) {
-		printf("Error: malloc error (size: %u) \n", sizeof(ec_barcode_eeprom_protect_data));
+		printf("Error: malloc error (size: %lu) \n", sizeof(ec_barcode_eeprom_protect_data));
 		return false;
 	}
 	memset(pprotectData, 0, sizeof(ec_barcode_eeprom_protect_data));
@@ -421,7 +421,7 @@ bool get_eeprom_config(int fd, ulong uID, ulong *puValue)
 
 	pEepromConfig = (peeprom_config) malloc(sizeof(eeprom_config));
 	if (pEepromConfig == NULL) {
-		printf("Error: malloc error (size: %u) \n", sizeof(eeprom_config));
+		printf("Error: malloc error (size: %lu) \n", sizeof(eeprom_config));
 		return false;
 	}
 	pEepromConfig->uID = uID;
@@ -523,7 +523,7 @@ bool i2c_transfer(int fd, uchar DeviceID, uchar Addr, uint length, uchar *pWBuff
 
 	pi2cData = (pec_i2c_data) malloc(sizeof(ec_i2c_data));
 	if (pi2cData == NULL) {
-		printf("Error: malloc error (size: %u) \n", sizeof(ec_i2c_data));
+		printf("Error: malloc error (size: %lu) \n", sizeof(ec_i2c_data));
 		return false;
 	}
 	memset(pi2cData, 0, sizeof(ec_i2c_data));
@@ -541,6 +541,8 @@ bool i2c_transfer(int fd, uchar DeviceID, uchar Addr, uint length, uchar *pWBuff
 
 	DEBUG("[debug] >> %s:%d \n", __func__, __LINE__);
 	DEBUG("[debug] >> pi2cData->length:%d \n", pi2cData->length);
+
+	DEBUG("[debug] >> ioctl_common_ec_i2c_transfer:0x%lX\n", IOCTL_COMMON_EC_I2C_TRANSFER);
 
 	if (ioctl(fd, IOCTL_COMMON_EC_I2C_TRANSFER, pi2cData)) {
 		printf("Error: failed to call IOCTL_COMMON_EC_I2C_TRANSFER \n");

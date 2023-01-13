@@ -98,3 +98,6 @@ and common.
 9.2 Set and get dio-led values
 	#./test_common
 ============================================================================
+Note:  If you running 32-bit programs in 64-bit system,you  should  install lsb-core package first.
+        #apt-get install lsb-core
+

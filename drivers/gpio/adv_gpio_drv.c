@@ -34,6 +34,17 @@
  *              - Support for compiling in kernel-4.10 and below.
  *              Version 1.07 <10/17/2018> Ji.Xu
  *              - Support UNO-420
+ *              Version 1.08 <08/30/2019> Yao.Kang
+ *              - Support 32-bit programs on 64-bit kernel
+ *              Version 1.09 <04/24/2020> Yao.Kang
+ *              - Support UNO-2372G GPIO 
+ *              - Support UNO-2473G
+ *              Version 1.10 <07/21/2020> Yao.Kang
+ *              - Support UNO-2484G
+ *              - Support UNO-3272
+ *              Version 1.11 <05/13/2022> Chic.Lee
+ *              - sync to EC gpio status in s0,s3 and s5 after setting gpio (need adv_ec v1.08)
+ *              - remove UNO-420 from ec-gpio (UNO-420 should be sysfs gpio(ad5593r))
  -----------------------------------------------------------------------------*/
 
 #include <linux/version.h>
@@ -68,8 +79,17 @@
 #define ECSETGPIOSTATUS         _IO(EC_MAGIC, 9)
 #define ECGETGPIOSTATUS         _IO(EC_MAGIC, 0x0a)
 
-#define ADVANTECH_EC_GPIO_VER           "1.07"
-#define ADVANTECH_EC_GPIO_DATE          "10/17/2018" 
+#define ADVANTECH_EC_GPIO_VER           "1.11"
+#define ADVANTECH_EC_GPIO_DATE          "05/13/2022" 
+
+
+//#define ADVANTECHDEBUG
+
+#ifdef ADVANTECHDEBUG
+#define DEBUGPRINT printk
+#else
+#define DEBUGPRINT(a, ...)
+#endif
 
 static int major_gpio = 0;
 
@@ -153,8 +173,33 @@ unsigned int checkHwpinNumber(unsigned int index)
 
 static int adv_gpio_set_dir(uchar value,uchar index)
 {
+    int res = -1;
+    uchar svalue = 0x0, tmp = 0x0;
     uchar pin_number=checkHwpinNumber(index);
-    return write_gpio_dir(pin_number,value);
+    res = write_gpio_dir(pin_number,value);
+    if(res == 0)
+    {
+        if(read_gpio_sstatus(index, EC_S5_STATE, &svalue) == 0)
+        {
+            if(value == EC_MBOX_S_STATE_INPUT)  //DI
+            {
+                tmp = EC_MBOX_S_STATE_OUTPUT;
+                svalue &= ~tmp;
+                svalue |= EC_MBOX_S_STATE_INPUT;
+                
+            }
+            else if(value == EC_MBOX_S_STATE_OUTPUT)    //DO
+            {
+                tmp = EC_MBOX_S_STATE_INPUT;
+                svalue &= ~tmp;
+                svalue |= EC_MBOX_S_STATE_OUTPUT;
+            }
+            write_gpio_sstatus(index, EC_S5_STATE, svalue);
+            write_gpio_sstatus(index, EC_S0_STATE, svalue);
+            write_gpio_sstatus(index, EC_S3_STATE, svalue);
+        }
+    }
+    return res;
 }
 
 static int adv_gpio_get_dir(uchar *pvalue, uchar index)
@@ -165,13 +210,37 @@ static int adv_gpio_get_dir(uchar *pvalue, uchar index)
 
 static int adv_gpio_set_status(uchar value,uchar index)
 {
+    int res = -1;
+    uchar svalue = 0x0, tmp = 0x0;
     uchar pin_number=checkHwpinNumber(index);
-    return write_gpio_status(pin_number,value);
+    res = write_gpio_status(pin_number,value);
+    if(res == 0)
+    {
+        if(read_gpio_sstatus(index, EC_S5_STATE, &svalue) == 0)
+        {
+            tmp = EC_MBOX_S_STATE_HIGH;
+            if(value == 0) svalue &= ~tmp;  //low
+            else svalue |= tmp;             //high
+            write_gpio_sstatus(index, EC_S5_STATE, svalue);
+            write_gpio_sstatus(index, EC_S0_STATE, svalue);
+            write_gpio_sstatus(index, EC_S3_STATE, svalue);
+        }
+    }
+    return res;
 }
 static int adv_gpio_get_status(uchar *pvalue, uchar index)
 {
+    int res = -1;
+    //uchar svalue = 0x0;
     uchar pin_number=checkHwpinNumber(index);
-    return read_gpio_status(pin_number,pvalue);
+    res = read_gpio_status(pin_number,pvalue);
+    //if(res == 0)
+    //{
+    //    read_gpio_sstatus(index, EC_S0_STATE, &svalue);
+    //    read_gpio_sstatus(index, EC_S3_STATE, &svalue);
+    //    read_gpio_sstatus(index, EC_S5_STATE, &svalue);
+    //}
+    return res;
 }
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
 static int adv_gpio_ioctl (
@@ -188,16 +257,18 @@ static long adv_gpio_ioctl (
 {
     unsigned int data[2];
 
+    DEBUGPRINT("Debug enter ioctl\n");
     switch ( cmd )
     {
         case SETGPIODIR:
-            if(copy_from_user(data, (void *)arg, 2 * sizeof(signed int)))
+            if(copy_from_user(data, (void *)arg, 2 * sizeof(unsigned int)))
             {
                 printk("copy from user error.\n");
                 return -EFAULT;
             }
             if((data[0] < 0) || (data[0] > 7))
             {
+		printk("Debug data error\n");
                 return -EINVAL;
             }
             adv_gpio_set_dir(data[1],data[0]);
@@ -211,11 +282,13 @@ static long adv_gpio_ioctl (
             }
             if((data[0] < 0) || (data[0] > 7))
             {
+		printk("Debug data error\n");
                 return -EINVAL;
             }
             adv_gpio_get_dir(&data[1],data[0]);
             if(copy_to_user((void *)arg,data,2 * sizeof(unsigned int)))
             {
+		    printk("copy to user error\n");
                 return -EFAULT;
             }
             break;
@@ -223,10 +296,12 @@ static long adv_gpio_ioctl (
         case ECSETGPIOSTATUS:
             if(copy_from_user(data, (void *)arg, 2 * sizeof(signed int)))
             {	
+		printk("ECSETGPIOSTATUS error1\n");
                 return -EFAULT;
             }
             if((data[0] < 0) || (data[0] > 7))
             {
+		printk("ECSETGPIOSTATUS error2\n");
                 return -EINVAL;
             }
             adv_gpio_set_status(data[1],data[0]);
@@ -235,15 +310,18 @@ static long adv_gpio_ioctl (
         case ECGETGPIOSTATUS:
             if(copy_from_user(data,(void *)arg,sizeof(unsigned int)))
             {
+		printk("ECGETGPIOSTATUS error1\n");
                 return -EFAULT;
             }
             if((data[0] < 0) || (data[0] > 7))
             {
+		printk("ECGETGPIOSTATUS error2\n");
                 return -EINVAL;
             }
             adv_gpio_get_status(&data[1],data[0]);
             if(copy_to_user((void *)arg,data,2 * sizeof(unsigned int)))
             {
+		printk("copy_to_user error printf");
                 return EFAULT;
             }
             break;
@@ -251,6 +329,78 @@ static long adv_gpio_ioctl (
             return -1;
     }
     return 0;
+}
+/* Support 32-bit programs */
+static long adv_gpio_compat_ioctl (
+	struct file* filp, 
+	unsigned int cmd, 
+	unsigned long arg)
+{
+	unsigned int data[2];
+	switch( cmd )
+	{
+		case SETGPIODIR:
+			if(copy_from_user(data, (void *)arg, 2 * sizeof(unsigned int)))
+			{
+                		printk("copy from user set error.\n");
+                		return -EFAULT;
+			}
+			if(data[0] < 0 || data[0] > 7)
+			{
+                		return -EINVAL;
+			}
+			adv_gpio_set_dir(data[1], data[0]);
+			break;
+		case GETGPIODIR:	
+			if(copy_from_user(data, (void *)arg, 2 * sizeof(unsigned int)))
+			{
+                		printk("copy from user get error.\n");
+                		return -EFAULT;
+			}
+			if(data[0] < 0 || data[0] > 7)
+			{
+                		return -EINVAL;
+			}
+			adv_gpio_get_dir(&data[1], data[0]);
+			if(copy_to_user((void *)arg, data, 2 * sizeof(unsigned int)))
+			{	
+				printk("copy to user get error. \n");
+                		return -EFAULT;
+			}
+			break;
+		case ECSETGPIOSTATUS:
+			if(copy_from_user(data, (void *)arg, 2 * sizeof(unsigned int)))
+			{
+				printk("ECSETGPIOSTATUS error. \n");
+                		return -EFAULT;
+			}
+			if(data[0] < 0 || data[0] > 7)
+			{
+                		return -EINVAL;
+			}
+			adv_gpio_set_status(data[1], data[0]);
+			break;
+		case ECGETGPIOSTATUS:
+            		if(copy_from_user(data,(void *)arg,sizeof(unsigned int)))
+            		{
+				printk("ECGETGPIOSTATUS error. \n");
+                		return -EFAULT;
+		        }
+           		if((data[0] < 0) || (data[0] > 7))
+            		{
+                		return -EINVAL;
+            		}
+			adv_gpio_get_status(&data[1], data[0]);
+			if(copy_to_user((void *)arg, data, 2 * sizeof(unsigned int)))
+			{
+                		return EFAULT;
+			}
+			break;
+		default:
+			return -1;
+	}
+
+	return 0;
 }
 
 static int adv_gpio_open (
@@ -274,6 +424,7 @@ owner:		THIS_MODULE,
 #else
             unlocked_ioctl: adv_gpio_ioctl,
 #endif
+	    compat_ioctl:  adv_gpio_compat_ioctl,
             open:		adv_gpio_open,
             release:	adv_gpio_release,
 };
@@ -336,9 +487,12 @@ static int adv_ec_init (void)
 	if((adspname_detect(BIOS_Product_Name,"TPC-8100TR"))
 			&& (adspname_detect(BIOS_Product_Name,"UNO-1372G-E?AE")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-1372G-J0?1AE")) 
-			&& (adspname_detect(BIOS_Product_Name,"UNO-420")) 
+//			&& (adspname_detect(BIOS_Product_Name,"UNO-420")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-1483G-4??AE"))
-			&& (adspname_detect(BIOS_Product_Name,"UNO-2473G-J?AE"))) 
+			&& (adspname_detect(BIOS_Product_Name,"UNO-2473G"))
+			&& (adspname_detect(BIOS_Product_Name,"UNO-3272"))
+			&& (adspname_detect(BIOS_Product_Name,"UNO-2484G"))
+			&& (adspname_detect(BIOS_Product_Name,"UNO-2372G-*"))) 
     {
 		printk(KERN_INFO "%s is not support EC gpio!\n", BIOS_Product_Name);
 		return -ENODEV;
@@ -374,3 +528,4 @@ module_exit( adv_ec_cleanup );
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("SunLang");
 MODULE_DESCRIPTION("Advantech EC GPIO Driver.");
+MODULE_VERSION(ADVANTECH_EC_GPIO_VER);

@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -O
 
-all:test_brightness test_watchdog test_gpio test_led test_common test_eeprom watchdog_daemon
+all:test_brightness test_watchdog test_gpio test_led test_common test_eeprom watchdog_daemon test_fan
 
 test_brightness: test_brightness.c
 	$(CC) $(CFLAGS) -o test_brightness test_brightness.c
@@ -25,5 +25,9 @@ watchdog_daemon: watchdog_daemon.c
 	$(CC) $(CFLAGS) -o watchdog_daemon watchdog_daemon.c
 	@sync
 
+test_fan:test_fan.c
+	$(CC) $(CFLAGS) -o test_fan test_fan.c
+	@sync
+
 clean:
-	@rm -f *.o test_brightness test_gpio test_led test_common test_watchdog test_eeprom watchdog_daemon
+	@rm -f *.o test_brightness test_gpio test_led test_common test_watchdog test_eeprom watchdog_daemon test_fan

@@ -34,6 +34,12 @@
  *              Version 1.05 <11/02/2017> Ji.Xu
  *              - Fixed issue: Cache coherency error when exec 'ioremap_uncache()' 
  *                in kernel-4.10.
+ *             Version 1.06 <09/16/2020> Jianfeng.dai
+ *				- use kenrel API to get devcie name in DMI
+ *             Version 1.07 <05/28/2021> pengcheng.du
+ *              - Add detect to Advantech porduct name "WISE".
+ *             Version 1.08 <05/13/2022> chic.lee
+ *              - Add gpio s state control.
  -----------------------------------------------------------------------------*/
 
 #include <linux/version.h>
@@ -52,6 +58,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/ioctl.h>
+#include <linux/dmi.h>
 #include <asm/io.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
@@ -64,8 +71,8 @@
 #include <linux/mutex.h>
 #include "ec.h"
 
-#define ADVANTECH_EC_MFD_VER     "1.05"
-#define ADVANTECH_EC_MFD_DATE    "11/02/2017"
+#define ADVANTECH_EC_MFD_VER     "1.08"
+#define ADVANTECH_EC_MFD_DATE    "05/13/2022"
 
 struct mutex lock;
 struct Dynamic_Tab *PDynamic_Tab;
@@ -104,6 +111,38 @@ int wait_obf(void)
     return -ETIMEDOUT;
 }
 EXPORT_SYMBOL(wait_obf);
+
+int read_mailbox(char offset, uchar *odata)
+{
+    if(wait_ibf()!=0) return EC_MBOX_IDERR_FAIL;  //wait input buffer clear
+    inb(EC_STATUS_PORT);   //clear output buffer flag, prevent unfinish command
+    outb(offset + EC_MBOX_READ_START_OFFSET, EC_COMMAND_PORT);  //send read mailbox command
+    if(wait_obf()!=0) return EC_MBOX_IDERR_FAIL;  //wait output buffer set
+    *odata = inb(EC_STATUS_PORT);   //read data
+    return EC_MBOX_IDERR_SUCCESS;
+}
+
+int write_mailbox(char offset, uchar idata)
+{
+    if(wait_ibf()!=0) return EC_MBOX_IDERR_FAIL;  //wait input buffer clear
+    outb(offset + EC_MBOX_WRITE_START_OFFSET, EC_COMMAND_PORT);  //send write mailbox command
+    if(wait_ibf()!=0) return EC_MBOX_IDERR_FAIL;  //wait input buffer clear
+    outb(idata, EC_COMMAND_PORT);   //write data
+    return EC_MBOX_IDERR_SUCCESS;
+}
+
+int wait_cmd_clear(void)
+{
+    int icount;
+    uchar dtemp;
+    for (icount=0;icount<0xFF;icount++)
+    {
+        if (read_mailbox(0x00, &dtemp)!=EC_MBOX_IDERR_SUCCESS) break; //fail
+        if (dtemp==0x00) return EC_MBOX_IDERR_SUCCESS; //wait command clear
+        udelay(EC_UDELAY_TIME);
+    }
+    return EC_MBOX_IDERR_FAIL;
+}
 
 //static int wait_smbus_protocol_finish(void)
 int wait_smbus_protocol_finish(void)
@@ -405,6 +444,115 @@ error:
 }
 EXPORT_SYMBOL_GPL(read_gpio_status);
 
+int read_gpio_sstatus(uchar hwpin, uchar sstate, uchar *value)
+{
+    int ret = -1;
+
+    uchar sstatus_value = 0x0;
+
+    mutex_lock(&lock);
+
+    if (wait_cmd_clear()!=EC_MBOX_IDERR_SUCCESS)
+    {
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+
+    //set para to device id
+    outb(EC_MBOX_WRITE_PARA_OFFSET, EC_COMMAND_PORT);
+    if((ret = wait_ibf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+    outb(hwpin+EC_DID_ALTGPIO_0, EC_STATUS_PORT);
+    if((ret = wait_ibf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+
+    //set cmd to read s state control(0x38)
+    outb(EC_MBOX_WRITE_START_OFFSET, EC_COMMAND_PORT);
+    if((ret = wait_ibf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+    outb(EC_GPIO_SSTATE_READ, EC_STATUS_PORT);
+    if((ret = wait_ibf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+
+    if (wait_cmd_clear()!=EC_MBOX_IDERR_SUCCESS)
+    {
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+
+    //read cmd status
+    outb(EC_MBOX_READ_STATE_OFFSET, EC_COMMAND_PORT);
+    if((ret = wait_obf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+    sstatus_value = inb(EC_STATUS_PORT);
+    //printk(KERN_DEBUG "%s: s state(pin, res)=(0x%x, 0x%x). line: %d\n", __func__ , hwpin, sstatus_value, __LINE__);
+    if(sstatus_value != EC_MBOX_IDERR_SUCCESS)
+    {
+        printk(KERN_DEBUG "%s: the pin(%d) not support s state control. line: %d\n", __func__, hwpin, __LINE__);
+        ret = -1;
+        goto error;
+    }
+
+    if(sstate == EC_S0_STATE)
+    {
+        //read s0
+        outb(EC_MBOX_READ_S0_STATE_OFFSET, EC_COMMAND_PORT);
+        if((ret = wait_obf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+        *value = inb(EC_STATUS_PORT);
+        //printk(KERN_DEBUG "%s: s state(pin, s0)=(0x%x, 0x%x). line: %d\n", __func__ , hwpin, *value, __LINE__);
+    }
+    else if(sstate == EC_S3_STATE)
+    {
+        //read s3
+        outb(EC_MBOX_READ_S3_STATE_OFFSET, EC_COMMAND_PORT);
+        if((ret = wait_obf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+        *value = inb(EC_STATUS_PORT);
+        //printk(KERN_DEBUG "%s: s state(pin, s3)=(0x%x, 0x%x). line: %d\n", __func__ , hwpin, *value, __LINE__);
+    }
+    else if(sstate == EC_S5_STATE)
+    {
+        //read s5
+        outb(EC_MBOX_READ_S5_STATE_OFFSET, EC_COMMAND_PORT);
+        if((ret = wait_obf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+        *value = inb(EC_STATUS_PORT);
+        //printk(KERN_DEBUG "%s: s state(pin, s5)=(0x%x, 0x%x). line: %d\n", __func__ , hwpin, *value, __LINE__);
+    }
+    else
+    {
+        ret = -1;
+        goto error;
+    }
+
+    mutex_unlock(&lock);
+    
+    return 0;
+
+error:
+    mutex_unlock(&lock);
+    printk(KERN_WARNING "%s: Not supported. / Wait for IBF or OBF too long. line: %d\n", __func__ , __LINE__);
+    return ret;
+}
+EXPORT_SYMBOL_GPL(read_gpio_sstatus);
+
 int write_gpio_status(uchar PinNumber,uchar value)
 {
     int ret = -1;
@@ -449,6 +597,123 @@ error:
     return ret;
 }
 EXPORT_SYMBOL_GPL(write_gpio_status);
+
+int write_gpio_sstatus(uchar hwpin, uchar sstate, uchar value)
+{
+    int ret = -1;
+
+    uchar sstatus_value = 0x0;
+
+    mutex_lock(&lock);
+
+    if (wait_cmd_clear()!=EC_MBOX_IDERR_SUCCESS)
+    {
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+
+    //set para to device id
+    outb(EC_MBOX_WRITE_PARA_OFFSET, EC_COMMAND_PORT);
+    if((ret = wait_ibf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+    outb(hwpin+EC_DID_ALTGPIO_0, EC_STATUS_PORT);
+    if((ret = wait_ibf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+
+    //set cmd to read s state control(0x39)
+    outb(EC_MBOX_WRITE_START_OFFSET, EC_COMMAND_PORT);
+    if((ret = wait_ibf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+    outb(EC_GPIO_SSTATE_WRITE, EC_STATUS_PORT);
+    if((ret = wait_ibf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+
+    if(sstate == EC_S0_STATE)
+    {
+        //s0
+        outb(EC_MBOX_WRITE_S0_STATE_OFFSET, EC_COMMAND_PORT);
+        if((ret = wait_ibf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+        outb(value, EC_STATUS_PORT);
+        if((ret = wait_ibf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+    }
+    else if(sstate == EC_S3_STATE)
+    {
+        //s3
+        outb(EC_MBOX_WRITE_S3_STATE_OFFSET, EC_COMMAND_PORT);
+        if((ret = wait_ibf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+        outb(value, EC_STATUS_PORT);
+        if((ret = wait_ibf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+    }
+    else if(sstate == EC_S5_STATE)
+    {
+        //s5
+        outb(EC_MBOX_WRITE_S5_STATE_OFFSET, EC_COMMAND_PORT);
+        if((ret = wait_ibf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+        outb(value, EC_STATUS_PORT);
+        if((ret = wait_ibf())){
+            printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+            goto error;
+        }
+    }
+    else
+    {
+        ret = -1;
+        goto error;
+    }
+
+    if (wait_cmd_clear()!=EC_MBOX_IDERR_SUCCESS)
+    {
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+
+    //read cmd status
+    outb(EC_MBOX_READ_START_OFFSET+EC_MBOX_STATUS_OFFSET, EC_COMMAND_PORT);
+    if((ret = wait_obf())){
+        printk(KERN_DEBUG "%s: got error. line: %d\n", __func__ , __LINE__);
+        goto error;
+    }
+    sstatus_value = inb(EC_STATUS_PORT);
+    //printk(KERN_DEBUG "%s: s state(pin, res)=(0x%x, 0x%x). line: %d\n", __func__ , hwpin, sstatus_value, __LINE__);
+    if(sstatus_value != EC_MBOX_IDERR_SUCCESS)
+    {
+        printk(KERN_DEBUG "%s: the pin(%d) not support s state control. line: %d\n", __func__, hwpin, __LINE__);
+        ret = -1;
+        goto error;
+    }
+
+    mutex_unlock(&lock);
+    return 0;
+
+error:
+    mutex_unlock(&lock);
+    printk(KERN_WARNING "%s: Not Supported / Wait for IBF or OBF too long. line: %d\n", __func__ , __LINE__);
+    return ret;
+}
+EXPORT_SYMBOL_GPL(write_gpio_sstatus);
 
 int read_gpio_dir(uchar PinNumber,uchar *pvalue)
 {
@@ -1155,90 +1420,112 @@ EXPORT_SYMBOL_GPL(ec_oem_set_status);
 
 int get_productname(char *product)
 {
-	adv_bios_info adspname_info;
+    //adv_bios_info adspname_info;
+    const char * vendor;
+    const char * device;
     static unsigned char *uc_ptaddr;
-	static unsigned char *uc_epsaddr;
+    //static unsigned char *uc_epsaddr;
     int index = 0;
     int i = 0;
-	int length = 0;
-	int type0_str = 0;
-	int type1_str = 0;
-	int is_advantech = 0;
+    int length = 0;
+    //int type0_str = 0;
+    //int type1_str = 0;
+    int is_advantech = 0;
+    
+    vendor = dmi_get_system_info(DMI_SYS_VENDOR);
+    if (memcmp(vendor,"Advantech", sizeof("Advantech")) == 0 )
+    {
+	is_advantech = true;
+    }
 
-	if (!(uc_ptaddr = ioremap_nocache(AMI_UEFI_ADVANTECH_BOARD_NAME_ADDRESS , AMI_UEFI_ADVANTECH_BOARD_NAME_LENGTH))) {
-		printk(KERN_ERR "Error: ioremap_nocache() \n");
-		return -ENXIO;
+    if (is_advantech) {
+	device = (char *)dmi_get_system_info(DMI_PRODUCT_NAME);
+	while ((device[length] != ' ')
+			&& (length < AMI_ADVANTECH_BOARD_ID_LENGTH))
+		length += 1;
+	memset(product, 0,AMI_ADVANTECH_BOARD_ID_LENGTH);
+	memmove(product,device,length);
+	return 0;
+    }
+
+    //Old BIOS
+    if (!(uc_ptaddr = ioremap(AMI_UEFI_ADVANTECH_BOARD_NAME_ADDRESS , AMI_UEFI_ADVANTECH_BOARD_NAME_LENGTH))) {
+        printk(KERN_ERR "Error: ioremap_nocache() \n");
+        return -ENXIO;
+    }
+    
+    /*
+    // Try to Read the product name from UEFI BIOS(DMI) EPS table
+    for (index = 0; index < AMI_UEFI_ADVANTECH_BOARD_NAME_LENGTH; index++) {
+        if (uc_ptaddr[index] == '_' 
+            && uc_ptaddr[index+0x1] == 'S' 
+            && uc_ptaddr[index+0x2] == 'M' 
+            && uc_ptaddr[index+0x3] == '_'
+            && uc_ptaddr[index+0x10] == '_'
+            && uc_ptaddr[index+0x11] == 'D'
+            && uc_ptaddr[index+0x12] == 'M'
+            && uc_ptaddr[index+0x13] == 'I'
+            && uc_ptaddr[index+0x14] == '_'
+            ) {
+                //printk(KERN_INFO "UEFI BIOS \n");
+                adspname_info.eps_table = 1;
+                break;
 	}
+    }
 
-	// Try to Read the product name from UEFI BIOS(DMI) EPS table
-	for (index = 0; index < AMI_UEFI_ADVANTECH_BOARD_NAME_LENGTH; index++) {
-		if (uc_ptaddr[index] == '_' 
-					&& uc_ptaddr[index+0x1] == 'S' 
-					&& uc_ptaddr[index+0x2] == 'M' 
-					&& uc_ptaddr[index+0x3] == '_'
-					&& uc_ptaddr[index+0x10] == '_'
-					&& uc_ptaddr[index+0x11] == 'D'
-					&& uc_ptaddr[index+0x12] == 'M'
-					&& uc_ptaddr[index+0x13] == 'I'
-					&& uc_ptaddr[index+0x14] == '_'
-					) {
-			//printk(KERN_INFO "UEFI BIOS \n");
-			adspname_info.eps_table = 1;
-			break;
-		}
-	}
-
-	// If EPS table exist, read type1(system information)
-	if (adspname_info.eps_table) {
-		if (!(uc_epsaddr = (char *)ioremap_nocache(((unsigned int *)&uc_ptaddr[index+0x18])[0], 
-						((unsigned short *)&uc_ptaddr[index+0x16])[0]))) {
-			if (!(uc_epsaddr = (char *)ioremap_cache(((unsigned int *)&uc_ptaddr[index+0x18])[0], 
-							((unsigned short *)&uc_ptaddr[index+0x16])[0]))) {
-				printk(KERN_ERR "Error: both ioremap_nocache() and ioremap_cache() exec failed! \n");
-				return -ENXIO;
-			}
-		}
-		type0_str = (int)uc_epsaddr[1];
-		for (i = type0_str; i < (type0_str+512); i++) {
-			if (uc_epsaddr[i] == 0 && uc_epsaddr[i+1] == 0 && uc_epsaddr[i+2] == 1) {
-				type1_str = i + uc_epsaddr[i+3];
-				break;
-			}
-		}
-		for (i = type1_str; i < (type1_str+512); i++) {
-			if (uc_epsaddr[i] == 'A' && uc_epsaddr[i+1] == 'd' && uc_epsaddr[i+2] == 'v' 
-					&& uc_epsaddr[i+3] == 'a' && uc_epsaddr[i+4] == 'n' && uc_epsaddr[i+5] == 't' 
-					&& uc_epsaddr[i+6] == 'e' && uc_epsaddr[i+7] == 'c' &&uc_epsaddr[i+8] == 'h') {
-				is_advantech = 1;
-				//printk(KERN_INFO "match Advantech \n");
-			}
-			if (uc_epsaddr[i] == 0) {
-				i++;
-				type1_str = i;
-				break;
-			}
-		}
-		length = 2;
-		while ((uc_epsaddr[type1_str + length] != 0)
-				&& (length < AMI_UEFI_ADVANTECH_BOARD_NAME_LENGTH)) {
-			length += 1;
-		}
-		memmove(product, &uc_epsaddr[type1_str], length);
-		iounmap((void *)uc_epsaddr);
-		if (is_advantech) {
-			iounmap(( void* )uc_ptaddr);
+    //If EPS table exist, read type1(system information)
+    if (adspname_info.eps_table) {
+        if (!(uc_epsaddr = (char *)ioremap_nocache(((unsigned int *)&uc_ptaddr[index+0x18])[0], 
+	     ((unsigned short *)&uc_ptaddr[index+0x16])[0]))) {
+            if (!(uc_epsaddr = (char *)ioremap_cache(((unsigned int *)&uc_ptaddr[index+0x18])[0], 
+                ((unsigned short *)&uc_ptaddr[index+0x16])[0]))) {
+                    printk(KERN_ERR "Error: both ioremap_nocache() and ioremap_cache() exec failed! \n");
+                    return -ENXIO;
+            }
+        }
+        type0_str = (int)uc_epsaddr[1];
+        for (i = type0_str; i < (type0_str+512); i++) {
+            if (uc_epsaddr[i] == 0 && uc_epsaddr[i+1] == 0 && uc_epsaddr[i+2] == 1) {
+                type1_str = i + uc_epsaddr[i+3];
+                break;
+           }
+        }
+        for (i = type1_str; i < (type1_str+512); i++) {
+            if (uc_epsaddr[i] == 'A' && uc_epsaddr[i+1] == 'd' && uc_epsaddr[i+2] == 'v' 
+                && uc_epsaddr[i+3] == 'a' && uc_epsaddr[i+4] == 'n' && uc_epsaddr[i+5] == 't' 
+                && uc_epsaddr[i+6] == 'e' && uc_epsaddr[i+7] == 'c' &&uc_epsaddr[i+8] == 'h') {
+                is_advantech = 1;
+                //printk(KERN_INFO "match Advantech \n");
+            }
+            if (uc_epsaddr[i] == 0) {
+                i++;
+                type1_str = i;
+                break;
+            }
+        }
+        length = 2;
+        while ((uc_epsaddr[type1_str + length] != 0)
+            && (length < AMI_UEFI_ADVANTECH_BOARD_NAME_LENGTH)) {
+            length += 1;
+        }
+        memmove(product, &uc_epsaddr[type1_str], length);
+        iounmap((void *)uc_epsaddr);
+        if (is_advantech) {
+        iounmap(( void* )uc_ptaddr);
 			return 0;
-		}
-	} 
-
-	// It is an old BIOS, read from 0x000F0000
+        }
+    } 
+    */
+    // It is an old BIOS, read from 0x000F0000
     for (index = 0; index < (AMI_UEFI_ADVANTECH_BOARD_NAME_LENGTH - 3); index++) {
         if((uc_ptaddr[index]=='T' && uc_ptaddr[index+1]=='P' && uc_ptaddr[index+2]=='C')
                 || (uc_ptaddr[index]=='U' && uc_ptaddr[index+1]=='N' && uc_ptaddr[index+2]=='O')
                 || (uc_ptaddr[index]=='I' && uc_ptaddr[index+1]=='T' && uc_ptaddr[index+2]=='A')
                 || (uc_ptaddr[index]=='M' && uc_ptaddr[index+1]=='I' && uc_ptaddr[index+2]=='O')
                 || (uc_ptaddr[index]=='E' && uc_ptaddr[index+1]=='C' && uc_ptaddr[index+2]=='U')
-                || (uc_ptaddr[index]=='A' && uc_ptaddr[index+1]=='P' && uc_ptaddr[index+2]=='A' && uc_ptaddr[index+3]=='X')) {
+                || (uc_ptaddr[index]=='F' && uc_ptaddr[index+1]=='S' && uc_ptaddr[index+2]=='T')
+                || (uc_ptaddr[index]=='A' && uc_ptaddr[index+1]=='P' && uc_ptaddr[index+2]=='A' && uc_ptaddr[index+3]=='X') 
+                || (uc_ptaddr[index]=='W' && uc_ptaddr[index+1]=='I' && uc_ptaddr[index+2]=='S' && uc_ptaddr[index+3]=='E')) {
             break;
         }
     }
@@ -1288,9 +1575,10 @@ static int ec_init(void)
     adv_get_dynamic_tab(PDynamic_Tab);
 
     printk("=====================================================\n");
-    printk("     Advantech ec mfd driver V%s [%s]\n",
+    printk("     Advantech EC mfd driver V%s [%s]\n",
             ADVANTECH_EC_MFD_VER, ADVANTECH_EC_MFD_DATE);
     printk("=====================================================\n");
+    printk("Product Name = %s\n", BIOS_Product_Name);
     return 0;
 
 err1:
@@ -1312,4 +1600,5 @@ module_exit( ec_cleanup );
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("sun.lang");
 MODULE_DESCRIPTION("Advantech EC MFD Driver.");
+MODULE_VERSION(ADVANTECH_EC_MFD_VER);
 

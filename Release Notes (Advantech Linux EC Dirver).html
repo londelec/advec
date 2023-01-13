@@ -1,0 +1,452 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+  <meta http-equiv="Content-Language" content="en-us">
+  <meta http-equiv="Content-Type" content="text/html; charset=windows-1252"><title>Advantech Linux EC Driver Release Notes</title> 
+  <style type="text/css">
+<!--
+/* --------------------------------------------------
+                  MAIN TOPIC STYLES
+-------------------------------------------------- */
+A:link
+{
+      COLOR: #0000FF;
+      TEXT-DECORATION: underline
+}
+A:active
+{
+ 
+    COLOR: green;
+   
+    TEXT-DECORATION: underline
+}
+A:visited
+{
+   
+    COLOR: purple;
+   
+    TEXT-DECORATION: underline
+}
+A:hover
+{
+    
+    COLOR: red;   
+    TEXT-DECORATION: underline
+}
+BODY
+{
+    BACKGROUND: white;
+    font-family: Verdana;font-size:9pt
+
+}
+
+img
+{
+	font-family: Verdana;
+	font-size:10pt; 
+	margin-top:0.5em;
+	 margin-bottom:1.5em; margin-left:2em 
+
+}
+
+img.folder
+{
+	font-family: Verdana;
+	font-size:10pt; 
+	margin-top:0em;
+	 margin-bottom:0em; margin-left:0em 
+ 
+
+}
+
+
+/* --------------------------------------------------
+                    HEADING STYLES
+-------------------------------------------------- */
+
+h1
+{
+	font-family: Verdana;
+	font-size:12pt; font-weight:bold; margin-top:0; margin-bottom:1em
+}
+h2
+{
+	font-family: Verdana;
+	font-size:10pt; font-weight:bold; margin-top:1.5em; margin-bottom:0 
+}
+h3
+{
+	font-family: Verdana;
+	font-size:9pt; font-weight:bold; margin-top:1em; margin-bottom:0;margin-left:1em
+}
+h4
+{
+	font-family: Times New Roman, Times;
+	
+}
+
+h1.BlueHead
+{
+	font-family: Verdana;
+	font-size:12pt; font-weight:bold; margin-top:0; margin-bottom:1em; color:#000080
+
+}
+hr
+{
+margin-top: 2em
+}
+
+
+/* --------------------------------------------------
+                     TEXT STYLES
+-------------------------------------------------- */
+P
+{
+    MARGIN-TOP: 4pt;
+    FONT-SIZE: 9pt;
+    MARGIN-BOTTOM: 4pt;
+    FONT-FAMILY: Verdana; margin-left:16pt
+}
+
+P.P1
+{
+    MARGIN-TOP: 3pt;
+    FONT-SIZE: 9pt;
+    MARGIN-BOTTOM: 3pt;
+    FONT-FAMILY: Verdana; list-style-type:disc
+}
+
+div.tablediv
+	{
+	width: 100%; /* Forces tables to have correct right margins and top spacing */
+	word-spacing:0; text-indent:0; margin-left:2em; margin-right:0
+	}
+div.head
+	{
+	width: 100%; /* Forces tables to have correct right margins and top spacing */
+	word-spacing:0; text-indent:0; margin-left:0; margin-right:0; background-color:#9CCFFF
+	}
+
+/* --------------------------------------------------
+                    TABLE STYLES
+-------------------------------------------------- */
+Table.Bordered
+{
+	width: 100%; /* Forces tables to have correct right margin */
+	margin-top: .6em;
+	margin-bottom: .3em;
+	border-width: 1px 1px 0px 0px;
+	border-style: solid;
+	border-color: #999999;
+	background-color: #999999; 
+	font-size: 100%; /* Text in Table is same size as text outside table */
+}
+table.Bordered tr, table.Bordered td
+	{ 
+	border-style: solid; /* Creates the cell border and color */
+	border-width: 0px 0px 1px 1px;
+	border-style: solid;
+	border-color: #999999;
+	padding: 4px 6px;
+	text-align: left;
+	}
+table.Bordered th
+{
+	border-style: solid; /* Creates the cell border and color */
+	border-width: 0px 0px 1px 1px;
+	border-style: solid;
+	border-color: #999999;
+	padding: 4px 6px;
+	text-align: left;
+	background: #cccccc; /* Creates the shaded table header row */
+	vertical-align: bottom;
+
+
+}
+
+table.Bordered tr	
+	{ 
+	background: #cccccc; /* Creates the shaded table header row */
+	vertical-align: bottom;
+	}
+table.Bordered td	
+	{
+	background: #ffffff;
+	vertical-align: top;
+	}
+
+/* --------------------------------------------------
+                     LIST STYLES
+-------------------------------------------------- */
+
+ol, ul
+	{
+	margin-top: 0.5em; 
+	padding-left: 1px; 
+	margin-left:20pt
+	}
+li
+	{
+	margin-bottom: 0.5em;  
+	margin-left:20pt;; 
+	margin-top:0 
+	}
+ul p, ol p, dl p
+	{
+	margin-left: 0em;
+	}
+ul p.label, ol p.label
+	{
+	margin-top: 0.5em;
+	}
+
+/* --------------------------------------------------
+               DEFINITION LIST STYLES
+-------------------------------------------------- */
+
+dl
+	{
+	margin-top: 0em; 
+	padding-left: 1px; margin-left:16pt
+	}
+dd
+	{
+	margin-bottom: 0em;  
+	margin-left: 1.5em; 
+	}
+dt
+	{
+	margin-top: .5em; 
+	}
+
+/* --------------------------------------------------
+           CODE, SYNTAX, and REFTIP STYLES
+-------------------------------------------------- */
+pre
+	{
+	margin-top: 2;
+	margin-bottom: 2; 
+	}
+pre.code
+	{
+	/* This is 100% of 70% */
+	background:#F0F0F0; cursor: text;
+	margin-top: 1em;
+	margin-bottom: 1em; 
+	color: #000066;
+	font-style:normal; font-variant:normal; font-weight:normal; font-size:100%; font-family:Courier New, Monospace, Courier; margin-left:16pt; padding-left:8px; padding-right:8px; padding-top:4px; padding-bottom:4px
+	}
+pre b, code b
+	{
+	letter-spacing: .1em; /* opens kerning on bold in Syntax/Code */
+	}
+pre.syntax
+	{
+	/* This is 100% of 70% */
+	border:1px solid #999999; background:#CCCCCC; cursor: text;
+	margin-top: 1em;
+	margin-bottom: 1em; 
+	color: #000000;
+	font-style:normal; font-variant:normal; font-weight:normal; font-size:100%; font-family:Courier New, Monospace, Courier; margin-left:16pt; padding-left:8px; padding-right:8px; padding-top:4px; padding-bottom:4px
+	}-->
+  </style></head><body>
+<h1>Advantech Linux EC Driver Release Notes</h1>
+<p>October 21, 2022</p>
+<p>Please read this documentation carefully. It includes late-breaking information about Advantech Linux EC Driver<p>
+
+<h2>Contents</h2>
+<p><a href="#Overview">Overview</a></p>
+<p><a href="#Version_Information">Version Information</a></p>
+<p><a href="#Software_Prerequisite">Software Prerequisite</a></p>
+<p><a href="#OS_support_list">OS support list</a></p>
+<p><a href="#Notes">Notes</a></p>
+<p><a href="#Important_Drivers_Version">Important Drivers Version</a></p>
+<p><a href="#Supported_Products_List">Supported Products List</a></p>
+<P><A href="#Known_Issue">Known Issues</A></P>
+<p><A href="#Checksum_Information">Checksum Information</A></p>
+
+<h2><a name="Overview">Overview</a></h2>
+<p>Advantech Linux EC Drivers currently include brightness, gpio, hwmon, watchdog, led, eeprom and common. All the ec related platform drivers depends on the mfd-ec driver.</p>
+
+<h2><a name="Version_Information">Version Information</a></h2>
+
+<p>[v2.20] : 2022/10/11</p>
+<ul>
+<li>Support Debian package to install on Debian-based OS, such as Ubuntu, Debian.</li>
+<li>Support Linux DKMS on Debian-based OS</li>
+<li>Support auto insert modules on Debian-based OS</li>
+<li>Driver example complies automatically with DKMS</li>
+</ul>
+
+<p>[v2.16] : 2022/08/10</p>
+<ul>
+<li>Update EC Watchdog driver to 1.15 to be compatible with Ubuntu watchdog service.</li>
+<li>Update EC mfd driver to 1.08 and EC GPIO driver to 1.11 to support PoE-enabled UNO-2484G.</li>
+<li>Restore the working state of GPIO and PoE when resuming from S3, S5 power state </li>
+</ul>
+
+<p>[v2.14] : 2021/07/14</p>
+<ul>
+<li>Add support the platform UNO-137-E1,UNO-410-E1,WISE-5580.</li>
+</ul>
+
+<p>[v2.11] : 2019/09/10</p>
+<ul>
+<li>Add support 32-bit example program in 64-bit system.</li>
+</ul>
+
+<p>[v2.10] : 2019/02/26</p>
+<ul>
+<li>Add support the platform UNO-2484G-673xAE, UNO-2484G-753xAE, TPC-B200-J12AE, TPC-2171T-J12AE, TPC-2211W-J12AE, TPC-2151T-J12AE.</li>
+<li>Add Support kernel 4.15.0-43.</li>
+</ul>
+
+<p>[v2.09-Beta1] : 2018/05/11</p>
+<ul>
+<li>Replace EC POWER driver to EC COMMON driver, support common-gpio and common-power.</li>
+</ul>
+
+<p>[v2.08] : 2018/03/22</p>
+<ul>
+<li>Add support kernel 4.10.0-28 and 4.13.0-36.</li>
+</ul>
+
+<p>[v2.07] : 2018/02/07</p>
+<ul>
+<li>Add support the platform TPC-B500-633AE,TPC-B500-6C3AE,TPC-5152T-633AE,TPC-5152T-6C3AE,TPC-5172T-633AE,TPC-5172T-6C3AE,TPC-5212W-633AE,TPC-5212W-6C3AE.</li>
+</ul>
+
+<p>[v2.06] : 2017/11/28</p>
+<ul>
+<li>Add support the platform UNO-1372G-J021AE and UNO-2372G.</li>
+<li>Bug Fixed: Failed to save the password of eeprom lock occasionally</li>
+</ul>
+
+<p>[v2.05] : 2017/11/14</p>
+<ul>
+<li>Add EC POWER driver.</li>
+<li>Add support the platform UNO-3283G-674AE, UNO-3285G-674AE and PR/VR4.</li>
+</ul>
+
+<p>[v2.4] : 2017/09/26
+<ul>
+<li>Add support the platform UNO-2484G-673xAE.</li>
+</ul>
+
+<p>[v2.3] : 2017/09/05</p>
+<ul>
+<li>Add EC EEPROM driver.</li>
+</ul>
+
+<p>[v2.02] : 2016/11/28</p>
+<ul>
+<li>Add support the platform UNO-2271G.</li>
+<li>Bug Fixed: Modules not supported by hardware were installed.</li>
+<li>Bug Fixed: Watchdog wouldn't be disable after system reboot or poweroff.</li>
+</ul>
+
+<p>[v2.02-Beta1] : 2016/07/12</p>
+<ul>
+<li>The first released and add IPS Library v1.0.0 to support IPS-AE(UPS) API</li>
+</ul>
+
+<p>[v2.01] : 2016/03/22</p>
+<ul>
+<li>Support the platform UNO-1372G-ExAE, APAX-5580-4xxAE,TPC-1782H-4xxBE.</li>
+</ul>
+
+<p>[v2.00] : 2016/02/01</p>
+<ul>
+<li>Add the HWMON driver.</li>
+<li>Support the platform TPC-651T-ExAE, TPC-1251T-ExAE, TPC-1551T-ExAE,TPC-1751T-ExAE,TPC-1051WP-ExAE, TPC-1551WP-ExAE, UNO-1172A.</li>
+<li>The corresponding drivers would be installed based on the platform model.</li>
+<li>Bug Fixed: The gpio example can be used in TPC device which is not support GPIO.</li>
+<li>Bug Fixed: After set watchdog timeout,then enable watchdog,the system will always reboot after 45s.</li>
+</ul>
+
+<p>[v1.00] : 2014/11/13</p>
+<ul>
+<li>Initial version.</li>
+</ul>
+
+<h2><a name="Software_Prerequisite">Software Prerequisite</a></h2>
+<p>EAPI Library V1.0.14 or later.</p>
+
+<h2><a name="OS_support_list">OS Information</a></h2>
+<p>Ubuntu Desktop 20.04.3 LTS, kernel 5.11.0-27-generic</p>
+
+<h2><a name="Notes">Notes</a></h2>
+<p>Drivers will be installed in the folder /usr/src/advantech/advec-{package version} and loaded
+during the booting process. When the system boots up, all of these drivers will be
+loaded. Each driver is provided with test program which can be found in
+/usr/src/advantech/advec-{package version}/example/.</p>
+
+<h2><a name="Important_Drivers_Version">Important Drivers Version</a></h2>
+<ul style="margin-left: 20pt; margin-top: 0.5em; padding-left: 1px">
+	<li>mfd-ec  v1.08</li>
+	<li>Brightness  v1.09</li>
+	<li>GPIO v1.11</li>
+	<li>HWMON v1.11</li>
+	<li>Watchdog v1.15</li>
+	<li>LED v1.02</li>
+	<li>EEPROM v1.03</li>
+	<li>COMMON v1.02</li>
+</ul>
+
+<h2><a name="Supported_roducts_List">Supported Products List</a></h2>
+<h3><a name="IPSAEServer">EC-Brightness supports:</a></h3>
+<p>TPC-8100TR, TPC-651T-ExAE, TPC-1251T-ExAE, TPC-1551T-ExAE, TPC-1751T-ExAE, TPC-1051WP-ExAE, TPC-1551WP-ExAE, TPC-1782H-4xxBE, TPC-B500-633AE, TPC-B500-6C3AE, TPC-5152T-633AE, TPC-5152T-6C3AE, TPC-5172T-633AE, TPC-5172T-6C3AE, TPC-5212W-633AE, TPC-5212W-6C3AE, PR/VR4, TPC-B200-J12AE, TPC-2171T-J12AE, TPC-2211W-J12AE, TPC-2151T-J12AE</p>
+<h3><a name="IPSAEUtility">EC-GPIO supports:</a></h3>
+<p>TPC-8100TR, UNO-1483G-434AE, UNO-1372G-ExAE, UNO-1372G-J021AE</p>
+<h3><a name="IPSAEUtility">EC-HWMON supports:</a></h3>
+<p>TPC-8100TR, TPC-651T-ExAE, TPC-1251T-ExAE, TPC-1551T-ExAE, TPC-1751T-ExAE, TPC-1051WP-ExAE, TPC-1551WP-ExAE, TPC-B500-633AE, TPC-B500-6C3AE, TPC-5152T-633AE, TPC-5152T-6C3AE, TPC-5172T-633AE, TPC-5172T-6C3AE, TPC-5212W-633AE,TPC-5212W-6C3AE, TPC-B200-J12AE, TPC-2171T-J12AE, TPC-2211W-J12AE, TPC-2151T-J12AE, UNO-1483G-434AE, UNO-2483G-434AE, UNO-3483G-374AE, UNO-1172A, UNO-2484G-753xAE, UNO-2484G-673XAE, APAX-5580-4xxAE, UNO-1372G-ExAE, TPC-1782H-4xxBE, UNO-2271G-E2xAE, UNO-3283G-674AE, UNO-3285G-674AE,PR/VR4,UNO-1372G-J021AE, UNO-2372G,UNO-137-E1,UNO-410-E1,WISE-5580</p>
+<h3><a name="IPSAEUtility">EC-Watchdog supports:</a></h3>
+<p>TPC-8100TR, TPC-651T-ExAE, TPC-1251T-ExAE, TPC-1551T-ExAE, TPC-1751T-ExAE, TPC-1051WP-ExAE, TPC-1551WP-ExAE, TPC-B500-633AE, TPC-B500-6C3AE, TPC-5152T-633AE, TPC-5152T-6C3AE, TPC-5172T-633AE, TPC-5172T-6C3AE, TPC-5212W-633AE, TPC-5212W-6C3AE, TPC-B200-J12AE, TPC-2171T-J12AE, TPC-2211W-J12AE, TPC-2151T-J12AE, UNO-1483G-434AE, UNO-2483G-434AE, UNO-3483G-374AE, APAX-5580-4xxAE, TPC-1782H-4xxBE, UNO-1372G-ExAE, UNO-2271G-E2xAE, UNO-2484G-673xAE, UNO-2484G-753xAE, UNO-3283G-674AE, UNO-3285G-674AE,PR/VR4,UNO-1372G-J021AE, UNO-2372G,UNO-137-E1,UNO-410-E1,WISE-5580</p>
+<h3><a name="IPSAEUtility">EC-LED supports:</a></h3>
+<p>APAX-5580-4xxAE</p>
+<h3><a name="IPSAEUtility">EC-EEPROM supports:</a></h3>
+<p>TPC-8100TR, TPC-651T-E3AE, TPC-1251T-E3AE, TPC-1551T-E3AE, TPC-1751T-E3AE, TPC-1051WP-E3AE, TPC-1551WP-E3AE, TPC-B500-633AE, TPC-B500-6C3AE, TPC-5152T-633AE, TPC-5152T-6C3AE, TPC-5172T-633AE, TPC-5172T-6C3AE, TPC-5212W-633AE, TPC-5212W-6C3AE, TPC-B200-J12AE, TPC-2171T-J12AE, TPC-2211W-J12AE, TPC-2151T-J12AE, UNO-1483G-434AE, UNO-2483G-434AE, UNO-2484G-673xAE, UNO-2484G-753xAE, UNO-3483G-374AE, UNO-1372G-E3AE, UNO-2271G-E2xAE, UNO-2473G-JxAE, TPC-1782H-433AE, APAX-5580-433AE, APAX-5580-473AE, APAX-5580-4C3AE, ECU-4784, UNO-1172A(not support lock operation),UNO-2484G-673xAE,UNO-3283G-674AE, UNO-3285G-674AE,PR/VR4,UNO-1372G-J021AE and UNO-2372G</p>
+<h3><a name="IPSAEUtility">EC-COMMON-POWER supports:</a></h3>
+<p>UNO-3283G-674AE, UNO-3285G-674AE</p>
+<h3><a name="IPSAEUtility">EC-COMMON-LED supports:</a></h3>
+<p>UNO-1372G-J021AE, UNO-137-E1, UNO-410-E1,WISE-5580</p>
+
+
+
+
+<H2><A name="Known_Issue">Known issues</A></H2>
+<ul style="margin-left: 20pt; margin-top: 0.5em; padding-left: 1px">
+	<li>The value of VCORE get by hwmon is lower than the standard value,when system is not busy,on the platform TPC-B500-633AE,TPC-B500-6C3AE,TPC-5152T-633AE,TPC-5152T-6C3AE,TPC-5172T-633AE,TPC-5172T-6C3AE,TPC-5212W-633AE,TPC-5212W-6C3AE.</li>
+	<li>About the "hwmon" driver's warnning will be printed in kernel log,when the EC Driver be installed.</li>
+</ul>
+
+<H2><A name="Checksum_Information">Checksum Information</A></H2>
+<TABLE border="1" cellpadding="5">
+  <TBODY>
+  <TR bgcolor="#e0e0e0">
+    <TH><FONT size="2">Filename </FONT> 
+    <TH><FONT size="2">MD5 </FONT> 
+	<TH><FONT size="2">CRC32 </FONT> 
+    <TH><FONT size="2">SHA-256 </FONT> 
+    <TH><FONT size="2">File Size </FONT> 
+  </TR>
+  <TR>
+    <TD nowrap="" bgcolor="#ffffff"><FONT size="2">advec-2.20_linux-amd64.tar.gz</FONT>
+    <TD nowrap="" bgcolor="#ffffff"><FONT size="2">1c59231fda7f929db9cdc9d5b91e5ca7</FONT>
+    <TD nowrap="" bgcolor="#ffffff"><FONT size="2">c7e838ab</FONT>
+	<TD nowrap="" bgcolor="#ffffff"><FONT size="2">dc2632ca4b84edc411a9d595baae517be1ee5b187bf115b37ed1db9607505d9f</FONT>
+    <TD nowrap="" bgcolor="#ffffff"><FONT size="2">68,416</FONT>
+  </TR>
+  <TR>
+    <TD nowrap="" bgcolor="#ffffff"><FONT size="2">advec-drv_2.20_all.deb</FONT>
+    <TD nowrap="" bgcolor="#ffffff"><FONT size="2">46f3499f09920801ba40da870910200f</FONT>
+    <TD nowrap="" bgcolor="#ffffff"><FONT size="2">b28605c5</FONT>
+	<TD nowrap="" bgcolor="#ffffff"><FONT size="2">2af732cf4daa5bbdcc53e04a5ddabdd70a138ccad38a18c118c9274ded3e4868</FONT>
+    <TD nowrap="" bgcolor="#ffffff"><FONT size="2">49,436</FONT>
+  </TR>
+  </TBODY>
+</TABLE>
+
+<p>&nbsp;</p>
+<p align="center">Copyright (C) 2022 Advantech Co., Ltd. All Rights Reserved</p>
+
+</body></html>

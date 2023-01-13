@@ -32,14 +32,16 @@ if [ "x`cat /proc/modules |grep adv_ec`" != "x" ]; then
 fi
 
 modprobe i2c-i801
-insmod ${DRIVERDIR}/drivers/mfd-ec/adv_ec.ko
-insmod ${DRIVERDIR}/drivers/eeprom/adv_eeprom_drv.ko
-insmod ${DRIVERDIR}/drivers/hwmon/adv_hwmon_drv.ko
-insmod ${DRIVERDIR}/drivers/brightness/adv_brightness_drv.ko
-insmod ${DRIVERDIR}/drivers/gpio/adv_gpio_drv.ko
-insmod ${DRIVERDIR}/drivers/led/adv_led_drv.ko
-insmod ${DRIVERDIR}/drivers/common/adv_common_drv.ko
-insmod ${DRIVERDIR}/drivers/watchdog/adv_wdt_drv.ko
+
+modprobe adv_ec
+modprobe adv_eeprom_drv
+modprobe adv_hwmon_drv
+modprobe adv_brightness_drv
+modprobe adv_gpio_drv
+modprobe adv_led_drv
+modprobe adv_common_drv
+modprobe adv_wdt_drv
+
 
 #<<!MAKELEDNODE
 rm -f /dev/advled

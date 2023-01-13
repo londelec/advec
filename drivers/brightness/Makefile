@@ -4,20 +4,26 @@
 # Advantech eAutomation Division
 #
 
-UNAME := $(shell uname -r)
-KDIR := /home/dell/Documents/Firmware/linux-source-4.4.0/
+ifndef kversion
+	kversion=$(shell uname -r)
+endif
+
+MODULES := /lib/modules/${kversion}/
+
+ifndef KERNEL_DIR
+    KERNEL_DIR:=$(MODULES)/build
+endif
+
 PWD := $(shell pwd)
 ADVMOD := adv_brightness_drv
 
 obj-m := adv_brightness_drv.o
+KBUILD_EXTRA_SYMBOLS := $(src)/../mfd-ec/Module.symvers
 
 default:
-	@cp ../mfd-ec/Module.symvers ./
 	@sleep 1
-#	@make -C /lib/modules/$(UNAME)/build SUBDIRS=$(PWD) modules
-	@make -C $(KDIR) SUBDIRS=$(PWD) modules
-
-install: default
+	@make -C $(KERNEL_DIR) M=$(PWD) modules
+install:default
 	$(shell if grep $(ADVMOD) /proc/modules > /dev/null ; then \
 	 rmmod $(ADVMOD) ; fi)
 	$(shell [ -c /dev/$(ADVMOD) ] && rm -f /dev/$(ADVMOD))
@@ -30,12 +36,4 @@ uninstall:
 	@echo ""
 
 clean:
-	@rm -f *.o
-	@rm -f *~
-	@rm -f *.ko
-	@rm -f *.mod.c
-	@rm -f .*.cmd	
-	@rm -rf .tmp_versions
-	@rm -rf Module*
-	@rm -rf module*
-
+	@make -C $(KERNEL_DIR) M=$(PWD) clean

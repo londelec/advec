@@ -20,6 +20,8 @@
  *              - Initial version
  *              Version 1.01 <03/20/2018> Ji.Xu
  *              - Support for compiling in kernel-4.10 and below.
+ *              Version 1.02 <08/30/2019> Yao.Kang
+ *              - Support 32-bit programs on 64-bit kernel.
  -----------------------------------------------------------------------------*/
 
 #include <linux/version.h>
@@ -67,8 +69,8 @@
 #define CREATE_STORAGE_IMAGE_BIT			0x01
 #define STORAGE_RECOVERY_BIT				(0x01 << 1)
 
-#define ADVANTECH_EC_LED_VER           "1.01"
-#define ADVANTECH_EC_LED_DATE          "03/20/2018" 
+#define ADVANTECH_EC_LED_VER           "1.02"
+#define ADVANTECH_EC_LED_DATE          "08/30/2019" 
 
 //#define DEBUG_MESSAGE
 
@@ -473,13 +475,81 @@ static int ioctl_set_led(unsigned long pmsg)
 
 	return true;
 }
-EXPORT_SYMBOL(ioctl_set_led);
+//XPORT_SYMBOL(ioctl_set_led);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
 static int adv_led_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 #else
 static long adv_led_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #endif
+{
+	int ret = -1;
+	mutex_lock(&lock_ioctl);
+
+	switch(cmd) 
+	{
+	case IOCTL_EC_HWRAM_GET_VALUE:
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	case IOCTL_EC_HWRAM_SET_VALUE:
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	case IOCTL_EC_ONEKEY_GET_STATUS:
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	case IOCTL_EC_ONEKEY_SET_STATUS:
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	case IOCTL_EC_LED_USER_DEFINE:
+#ifdef DEBUG_MESSAGE
+		printk("EC LED IOCTL. \n");
+#endif
+		if(ioctl_set_led(arg))
+			ret = 0;
+		break;
+	case IOCTL_EC_LED_CONTROL_ON:
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	case IOCTL_EC_LED_CONTROL_OFF: 
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	case IOCTL_EC_LED_BLINK_ON: 
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	case IOCTL_EC_LED_BLINK_OFF: 
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	case IOCTL_EC_LED_BLINK_SPACE: 
+#ifdef DEBUG_MESSAGE
+		printk("Not support Currently. \n");
+#endif
+		break;
+	default:
+		ret = -1;
+		break;
+	}
+
+	mutex_unlock(&lock_ioctl);
+	return ret;
+}
+
+static long adv_led_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = -1;
 	mutex_lock(&lock_ioctl);
@@ -580,6 +650,7 @@ static struct file_operations adv_led_fops = {
 #else
 	.unlocked_ioctl = adv_led_ioctl,
 #endif
+	.compat_ioctl = adv_led_compat_ioctl,
 	.open = adv_led_open,
     .release = adv_led_release,
 	.owner = THIS_MODULE
@@ -677,3 +748,4 @@ module_exit( adv_led_cleanup );
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("JiXu");
 MODULE_DESCRIPTION("Advantech EC LED Driver.");
+MODULE_VERSION(ADVANTECH_EC_LED_VER);

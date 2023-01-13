@@ -36,8 +36,13 @@
  *              - Support EC TPC-5???W-6??AE
  *              Version 1.07 <03/20/2018> Ji.Xu
  *              - Support for compiling in kernel-4.10 and below.
- *              Version 1.08 <08/03/2018> Ji.Xu
+ *              Version 1.08 <02/20/2019> Ji.Xu
  *              - Support EC TPC-*81WP-4???E
+ *              - Support EC TPC-B200-???AE
+ *              - Support EC TPC-2???T-???AE
+ *              - Support EC TPC-2???W-???AE
+ *              Version 1.09 <08/30/2019> Yao.Kang
+ *              - Support 32-bit programs on 64-bit kernel.
  -----------------------------------------------------------------------------*/
 #include <linux/version.h>
 #ifndef KERNEL_VERSION
@@ -65,8 +70,8 @@
 #include <linux/device.h>
 #include "../mfd-ec/ec.h"
 
-#define ADVANTECH_EC_BRIGHTNESS_VER           "1.07"
-#define ADVANTECH_EC_BRIGHTNESS_DATE          "03/20/2018" 
+#define ADVANTECH_EC_BRIGHTNESS_VER           "1.09"
+#define ADVANTECH_EC_BRIGHTNESS_DATE          "08/30/2019" 
 
 //ACPI Brightness
 #define BRIGHTNESS_VAL_DEFAULT 5
@@ -214,12 +219,18 @@ static int wdt_proc_write(struct file *file, const char __user *buffer, size_t c
 	return count;  
 }  
 #endif
-
+#ifdef HAVE_PROC_OPS
+static const struct proc_ops proc_fops = {
+  .proc_open = wdt_proc_open,
+  .proc_read = seq_read,
+};
+#else
 static struct file_operations proc_fops = {  
 	.open  = wdt_proc_open,  
 	.read  = seq_read,  
 //	.write = wdt_proc_write,        
-};  
+}; 
+#endif
 
 int wdt_create_proc(char *name)  
 {  
@@ -383,6 +394,106 @@ static long adv_brightness_ioctl(struct file* filp, unsigned int cmd, unsigned l
 	return 0;
 }
 
+static long adv_brightness_compat_ioctl(struct file* filp, unsigned int cmd, unsigned long arg )
+{
+	uchar data;
+	uchar advbrightnessvalue;
+
+	switch ( cmd )
+	{
+	case SETMINBRIGHTNESS:
+		if(copy_from_user(&data, (void *)arg, sizeof(uchar))) {
+			return -EFAULT;
+		}
+		if((data < BRIGHTNESS_MIN_VALUE) || (data > BRIGHTNESS_MAX_VALUE)) {
+			return -EINVAL;
+		} else {
+			brightness_min_default = data;
+		}
+		wdt_data[0].min_level = brightness_min_default;
+		break;
+
+	case SETMAXBRIGHTNESS:
+		if(copy_from_user(&data, (void *)arg, sizeof(uchar))) {
+			return -EFAULT;
+		}
+		if((data > BRIGHTNESS_MAX_VALUE)|(data < brightness_min_default)) {
+			return -EINVAL;
+		} else {
+			brightness_max_default = data;
+		} 
+		wdt_data[0].max_level = brightness_max_default;
+		break;
+
+	case SETBRIGHTNESS:
+		if(copy_from_user(&data, (void *)arg, sizeof(uchar))) {
+			return -EFAULT;
+		}
+		if(data < brightness_min_default) {
+			return -EINVAL;
+		} else if(data > brightness_max_default) {
+			return -EINVAL;
+		} else {
+			if(!((adspname_detect(BIOS_Product_Name,"MIO-2263")) 
+						&& (adspname_detect(BIOS_Product_Name,"MIO-5251"))
+						&& (adspname_detect(BIOS_Product_Name,"TPC-B500-6??AE"))
+						&& (adspname_detect(BIOS_Product_Name,"TPC-5???T-6??AE"))
+						&& (adspname_detect(BIOS_Product_Name,"TPC-5???W-6??AE"))
+						&& (adspname_detect(BIOS_Product_Name,"PR/VR4"))
+						)) { 
+				data = BRIGHTNESS_MAX_VALUE - data;
+			}
+			brightness_value_default = data;
+		}
+		read_acpi_value(BRIGHTNESS_ACPI_ADDR,&data);	
+		if(data & 0x80) {
+			write_acpi_value(BRIGHTNESS_ACPI_ADDR,brightness_value_default+128);
+		} else {
+			write_acpi_value(BRIGHTNESS_ACPI_ADDR,brightness_value_default);
+		}
+		wdt_data[0].level = brightness_value_default;
+		break;
+
+	case GETMINBRIGHTNESS:
+		data = brightness_min_default;
+		if(copy_to_user((void *)arg, &data, sizeof(uchar))) {
+			return -EFAULT;
+		}
+		break;
+
+	case GETMAXBRIGHTNESS:
+		data = brightness_max_default;
+		if(copy_to_user((void *)arg, &data, sizeof(uchar))) {
+			return -EFAULT;
+		}
+		break;
+
+	case GETBRIGHTNESS:
+		read_acpi_value(BRIGHTNESS_ACPI_ADDR,&advbrightnessvalue);
+		/*Set data to 0~9*/
+		if(advbrightnessvalue & 0x80) {
+			data = advbrightnessvalue - 128;
+		} else {
+			data = advbrightnessvalue;
+		}
+		if(!((adspname_detect(BIOS_Product_Name,"MIO-2263")) 
+					&& (adspname_detect(BIOS_Product_Name,"MIO-5251"))
+					&& (adspname_detect(BIOS_Product_Name,"TPC-B500-6??AE"))
+					&& (adspname_detect(BIOS_Product_Name,"TPC-5???T-6??AE"))
+					&& (adspname_detect(BIOS_Product_Name,"TPC-5???W-6??AE"))
+					&& (adspname_detect(BIOS_Product_Name,"PR/VR4"))
+					)) { 
+			data = BRIGHTNESS_MAX_VALUE - data;
+		}
+		if(copy_to_user((void *)arg, &data, sizeof(uchar))) {
+			return -EFAULT;
+		}
+		break;
+	default:
+		return -1;
+	}
+	return 0;
+}
 
 static int adv_brightness_open(struct inode *inode, struct file *file)
 {
@@ -411,6 +522,7 @@ owner:		THIS_MODULE,
 #else
 			unlocked_ioctl: adv_brightness_ioctl,
 #endif
+			compat_ioctl:	adv_brightness_compat_ioctl,
 			read:		adv_brightness_read,
 			write:		adv_brightness_write,
 			open:		adv_brightness_open,
@@ -478,6 +590,10 @@ int adv_brightness_init (void)
 			&& (adspname_detect(BIOS_Product_Name,"TPC-B500-6??AE"))
 			&& (adspname_detect(BIOS_Product_Name,"TPC-5???T-6??AE"))
 			&& (adspname_detect(BIOS_Product_Name,"TPC-5???W-6??AE"))
+			&& (adspname_detect(BIOS_Product_Name,"TPC-B200-???AE"))
+			&& (adspname_detect(BIOS_Product_Name,"TPC-2???T-???AE"))
+			&& (adspname_detect(BIOS_Product_Name,"TPC-2???W-???AE"))
+			&& (adspname_detect(BIOS_Product_Name,"TPC-300-?8??A"))
 			&& (adspname_detect(BIOS_Product_Name,"PR/VR4"))
 			) {
 		printk(KERN_INFO "%s is not support EC brightness!\n", BIOS_Product_Name);
@@ -520,5 +636,7 @@ int adv_brightness_init (void)
 module_init( adv_brightness_init );
 module_exit( adv_brightness_cleanup );
 
-MODULE_DESCRIPTION("Advantech EC Brightness Driver.");
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Advantech EC Brightness Driver.");
+MODULE_VERSION(ADVANTECH_EC_BRIGHTNESS_VER);
+

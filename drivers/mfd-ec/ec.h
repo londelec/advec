@@ -1,6 +1,8 @@
 #ifndef _EC_H
 #define _EC_H
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+#define HAVE_PROC_OPS
+#endif
 #define uchar unsigned int
 
 #define EC_COMMAND_PORT             0x29A
@@ -8,6 +10,48 @@
 
 #define EC_UDELAY_TIME              200
 #define EC_MAX_TIMEOUT_COUNT        5000
+
+#define EC_MBOX_IDERR_FAIL				0x0
+#define EC_MBOX_IDERR_SUCCESS			0x1
+#define EC_MBOX_IDERR_UNDEFINED_ITEM	0x2
+#define EC_MBOX_IDERR_ID_UNDEFINED		0x3
+#define EC_MBOX_IDERR_PIN_TYPE_ERR		0x4
+
+#define EC_MBOX_CMD_OFFSET				0x0
+#define EC_MBOX_STATUS_OFFSET			0x1
+#define EC_MBOX_PARA_OFFSET				0x2
+#define EC_MBOX_DAT00_OFFSET			0x3
+#define EC_MBOX_DAT01_OFFSET			0x4
+#define EC_MBOX_DAT02_OFFSET			0x5
+#define EC_MBOX_DAT03_OFFSET			0x6
+#define EC_MBOX_DAT04_OFFSET			0x7
+#define EC_MBOX_READ_START_OFFSET		0xA0
+#define EC_MBOX_WRITE_START_OFFSET		0x50
+
+#define EC_MBOX_READ_STATE_OFFSET		EC_MBOX_READ_START_OFFSET+EC_MBOX_STATUS_OFFSET
+#define EC_MBOX_WRITE_STATE_OFFSET		EC_MBOX_WRITE_START_OFFSET+EC_MBOX_STATUS_OFFSET
+#define EC_MBOX_READ_PARA_OFFSET		EC_MBOX_READ_START_OFFSET+EC_MBOX_PARA_OFFSET
+#define EC_MBOX_WRITE_PARA_OFFSET		EC_MBOX_WRITE_START_OFFSET+EC_MBOX_PARA_OFFSET
+
+
+#define EC_MBOX_READ_S0_STATE_OFFSET			EC_MBOX_READ_START_OFFSET+EC_MBOX_DAT00_OFFSET
+#define EC_MBOX_READ_S3_STATE_OFFSET			EC_MBOX_READ_START_OFFSET+EC_MBOX_DAT01_OFFSET
+#define EC_MBOX_READ_S5_STATE_OFFSET			EC_MBOX_READ_START_OFFSET+EC_MBOX_DAT02_OFFSET
+#define EC_MBOX_WRITE_S0_STATE_OFFSET			EC_MBOX_WRITE_START_OFFSET+EC_MBOX_DAT00_OFFSET
+#define EC_MBOX_WRITE_S3_STATE_OFFSET			EC_MBOX_WRITE_START_OFFSET+EC_MBOX_DAT01_OFFSET
+#define EC_MBOX_WRITE_S5_STATE_OFFSET			EC_MBOX_WRITE_START_OFFSET+EC_MBOX_DAT02_OFFSET
+#define EC_MBOX_S_STATE_INOUT_TYPE		0x0
+#define EC_MBOX_S_STATE_HIGHLOW_TYPE	0x1
+
+#define EC_MBOX_S_STATE_INPUT			0x80
+#define EC_MBOX_S_STATE_OUTPUT			0x40
+#define EC_MBOX_S_STATE_PULLUP			0x04
+#define EC_MBOX_S_STATE_PULLDN			0x02
+#define EC_MBOX_S_STATE_HIGH			0x01
+
+#define EC_S0_STATE						0x0
+#define EC_S3_STATE						0x3
+#define EC_S5_STATE						0x5
 
 // AD command
 #define EC_AD_INDEX_WRITE	 0x15    // Write AD port number into index
@@ -51,6 +95,25 @@
 #define EC_TBL_GET_PIN              0x21    // 0x21 Get HW pin number
 #define EC_TBL_GET_DEVID            0x22    // 0x22 Get device ID
 #define EC_MAX_TBL_NUM              32
+
+
+//FAN
+#define EC_FAN0_SPEED_ADDR     0x70
+#define EC_FAN0_HW_RAM_ADDR    0xD0
+#define EC_FAN0_CTL_ADDR       0xD2
+
+#define FAN_TACHO_MODE         0x02
+#define FAN0_TACHO_SOURCE      0x10    
+#define FAN0_PULSE_TYPE        0x04 
+
+//PWD commands
+#define EC_PWM_WRITE_INDEX       0x17
+#define EC_PWM_READ_DATA         0x18
+#define EC_PWM_WRITE_DATA        0x19
+#define EC_PWM_WRITE_FREQUENCY   0x1A
+
+
+
 
 // LED Device ID table
 #define EC_DID_LED_RUN              0xE1
@@ -180,6 +243,9 @@
 #define EC_GPIO_STATUS_WRITE	0x12	// According index, change GPIO pin status. 1-GPIO is high, 0-GPIO is low, 0xFF-fail.
 #define EC_GPIO_DIR_READ		0x1D	// According index, get GPIO input/output type. 1-input, 0-output, 0xFF-fail.
 #define EC_GPIO_DIR_WRITE		0x1E	// According index, change GPIO input/output type. 1-input, 0-output.
+
+#define EC_GPIO_SSTATE_READ		0x38	// According index, Read AltGpio S State control 
+#define EC_GPIO_SSTATE_WRITE	0x39	// According index, Write AltGpio S State control 
 
 // One Key Recovery commands
 #define EC_ONE_KEY_FLAG         0x9C    // Get or clear EC One Key Recovery flag
@@ -338,6 +404,10 @@ extern int read_acpi_value(uchar addr,uchar *pvalue);
 extern int write_acpi_value(uchar addr,uchar value);
 extern int read_gpio_status(uchar PinNumber,uchar *pvalue);
 extern int write_gpio_status(uchar PinNumber,uchar value);
+
+extern int read_gpio_sstatus(uchar hwpin, uchar sstate, uchar *value);
+extern int write_gpio_sstatus(uchar hwpin, uchar sstate, uchar value);
+
 extern int read_gpio_dir(uchar PinNumber,uchar *pvalue);
 extern int write_gpio_dir(uchar PinNumber,uchar value);
 extern int read_hw_ram(uchar addr, uchar *data);

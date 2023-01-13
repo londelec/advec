@@ -21,7 +21,10 @@
  *              - Initial version
  *              Version 1.01 <03/20/2018> Ji.Xu
  *              - Support for compiling in kernel-4.10 and below.
- *
+ *              Version 1.02 <08/30/2019> Yao.Kang
+ *              - Support 32-bit programs on 64-bit kernel.
+ *              Version 1.03 <07/21/2019> Yao.Kang
+ *              - Support Ubuntu 20.04 compile struct hash_desc{} no flags 
  -----------------------------------------------------------------------------*/
 #include <linux/version.h>
 #ifndef KERNEL_VERSION
@@ -60,19 +63,19 @@
 #include "../mfd-ec/ec.h"
 #include "adv_eeprom_drv.h"
 
-#define ADVANTECH_EC_EEPROM_VER           "1.01"
-#define ADVANTECH_EC_EEPROM_DATE          "03/20/2018" 
+#define ADVANTECH_EC_EEPROM_VER           "1.03"
+#define ADVANTECH_EC_EEPROM_DATE          "07/21/2019" 
 //#define QATEST
 //#define PASSWDCLEAN
 
 // magic number refer to linux-source-4.4.0/Documentation/ioctl/ioctl-number.txt
 #define EEPROM_MAGIC	'g'
 #define IOCTL_COMMON_EC_I2C_GET_CONFIG				_IO(EEPROM_MAGIC, 0x30)
-#define IOCTL_COMMON_EC_I2C_TRANSFER				_IOWR(EEPROM_MAGIC, 0x31, pec_i2c_data)
+#define IOCTL_COMMON_EC_I2C_TRANSFER				_IOWR(EEPROM_MAGIC, 0x31, int)
 #define IOCTL_COMMON_EC_I2C_GET_FREQ				_IO(EEPROM_MAGIC, 0x32)
 #define IOCTL_COMMON_EC_I2C_SET_FREQ				_IO(EEPROM_MAGIC, 0x33)
-#define IOCTL_COMMON_EC_BARCODE_EEPROM_GET_CONFIG	_IOWR(EEPROM_MAGIC, 0x34, peeprom_config)
-#define IOCTL_COMMON_EC_BARCODE_EEPROM_SET_PROTECT	_IOWR(EEPROM_MAGIC, 0x35, pec_barcode_eeprom_protect_data)
+#define IOCTL_COMMON_EC_BARCODE_EEPROM_GET_CONFIG	_IOWR(EEPROM_MAGIC, 0x34, int)
+#define IOCTL_COMMON_EC_BARCODE_EEPROM_SET_PROTECT	_IOWR(EEPROM_MAGIC, 0x35, int)
 
 ssize_t major = 0;
 static struct class *eeprom_class;
@@ -157,7 +160,10 @@ void sha1(unsigned char *hval, const unsigned char *data, unsigned int len)
 	}
 
 	desc->tfm = sha1;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
+#else
 	desc->flags = 0x0;
+#endif
 	if (crypto_shash_init(desc)) {
 		printk("crypto_shash_init: init shash_desc error! \n");
 		goto init_err;
@@ -186,7 +192,7 @@ bool ec_wait_mbox_cmd_clear(void)
     int i = 0;
     for( i = 0; i < 5000; i++ )
     {
-        if (ec_mbox_get_value(EC_MBOX_CMD_OFFSET, &uTemp) < 0)
+        if (!ec_mbox_get_value(EC_MBOX_CMD_OFFSET, &uTemp))
             break;
         if ( uTemp == 0 )
             return true;
@@ -247,17 +253,18 @@ bool ec_mbox_read_buffer_ram(int ReadLength, unsigned char *pReadBuffer)
 		ReadLength = 256;
 	banknum = ReadLength / 32;
 
-    if (ec_wait_mbox_cmd_clear() < 0)
+    if (!ec_wait_mbox_cmd_clear()) {
         goto ErrorReturn;
+	}
 	for (i = 0; i <= banknum; i++)
 	{
 		ec_mbox_set_value(EC_MBOX_PARA_OFFSET, (unsigned char)i);
 		ec_mbox_set_value(EC_MBOX_CMD_OFFSET, EC_MBOX_READ_256_BYTES_BUFFER);
 
-		if (ec_wait_mbox_cmd_clear() < 0)
+		if (!ec_wait_mbox_cmd_clear())
 			goto ErrorReturn;
 
-		if (ec_mbox_get_value(EC_MBOX_STATUS_OFFSET, &uStatus) < 0)
+		if (!ec_mbox_get_value(EC_MBOX_STATUS_OFFSET, &uStatus))
 			goto ErrorReturn;
 		if (uStatus != _MBoxErr_Success)
 			goto ErrorReturn;
@@ -273,7 +280,7 @@ bool ec_mbox_read_buffer_ram(int ReadLength, unsigned char *pReadBuffer)
 
 		for (j = 0; j < addition; j++)
 		{
-			if (ec_mbox_get_value((unsigned char)EC_MBOX_DAT_OFFSET(j), &pReadBuffer[i * 32 + j]) < 0)
+			if (!ec_mbox_get_value((unsigned char)EC_MBOX_DAT_OFFSET(j), &pReadBuffer[i * 32 + j]))
 				goto ErrorReturn;
 		}
 	}
@@ -286,11 +293,12 @@ ErrorReturn:
 // 0xC0 - Clear buffer RAM
 bool ec_mbox_clear_buffer_ram(void)
 {
-    if (ec_wait_mbox_cmd_clear() < 0)
+    if (!ec_wait_mbox_cmd_clear()) {
         goto ErrorReturn;
+	}
 
-	if (ec_mbox_set_value(EC_MBOX_CMD_OFFSET, EC_MBOX_CLEAR_256_BYTES_BUFFER) < 0)
-		goto ErrorReturn;
+	ec_mbox_set_value(EC_MBOX_CMD_OFFSET, EC_MBOX_CLEAR_256_BYTES_BUFFER);
+
 	return 1;
 ErrorReturn:
 	return 0;
@@ -319,28 +327,24 @@ bool ec_mbox_smbus_i2c_set_data(unsigned char uCommand, unsigned char uWriteLeng
 
 		case EC_MBOX_I2C_READ_WRITE:
 		case EC_MBOX_I2C_WRITE_READ:
-			if (pReadLength != NULL && *pReadLength > 41)
+			if (pReadLength != NULL && *pReadLength > 41) {
 				ReadLen = 41;
-
-			if (ec_mbox_set_value((unsigned char)EC_MBOX_DAT_OFFSET(2), ReadLen) < 0)	// Set read count
-				goto ErrorReturn;
-
+			}
+			ec_mbox_set_value((unsigned char)EC_MBOX_DAT_OFFSET(2), ReadLen);
+			break;
 		case EC_MBOX_SMBUS_WRITE_BLOCK:
-			if (ec_mbox_set_value((unsigned char)EC_MBOX_DAT_OFFSET(3), WriteLen) < 0)	// Set write count
-				goto ErrorReturn;
+			ec_mbox_set_value((unsigned char)EC_MBOX_DAT_OFFSET(3), WriteLen);
 			break;
 
 		case EC_MBOX_I2C_WRITEREAD_WITH_READ_BUFFER:
-			if (ec_mbox_clear_buffer_ram() < 0)
+			if (!ec_mbox_clear_buffer_ram()) {
 				goto ErrorReturn;
-
-			if (pReadLength != NULL && *pReadLength > 255)
+			}
+			if (pReadLength != NULL && *pReadLength > 255) {
 				ReadLen = 0;
-
-			if (ec_mbox_set_value((unsigned char)EC_MBOX_DAT_OFFSET(2), ReadLen) < 0)	// Set read count
-				goto ErrorReturn;
-			if (ec_mbox_set_value((unsigned char)EC_MBOX_DAT_OFFSET(3), WriteLen) < 0)	// Set write count
-				goto ErrorReturn;
+			}
+			ec_mbox_set_value((unsigned char)EC_MBOX_DAT_OFFSET(2), ReadLen);
+			ec_mbox_set_value((unsigned char)EC_MBOX_DAT_OFFSET(3), WriteLen);
 			break;
 
 		case EC_MBOX_SMBUS_WRITE_QUICK:
@@ -357,8 +361,7 @@ bool ec_mbox_smbus_i2c_set_data(unsigned char uCommand, unsigned char uWriteLeng
 	{
 		for (i = 0; i < uWriteLength; i++)
 		{
-			if (ec_mbox_set_value(EC_MBOX_DAT_OFFSET(i + 4), pWriteBuffer[i]) < 0)
-				goto ErrorReturn;
+			ec_mbox_set_value(EC_MBOX_DAT_OFFSET(i + 4), pWriteBuffer[i]);
 		}
 	}
 
@@ -388,7 +391,7 @@ bool ec_mbox_smbus_i2c_get_data(unsigned char uCommand, int *pReadLength, unsign
 		break;
 
 	case EC_MBOX_SMBUS_READ_BLOCK:
-		if (ec_mbox_get_value((unsigned char) EC_MBOX_DAT_OFFSET(2), (unsigned char *)pReadLength) < 0)
+		if (!ec_mbox_get_value((unsigned char) EC_MBOX_DAT_OFFSET(2), (unsigned char *)pReadLength))
 			goto ErrorReturn;
 		break;
 
@@ -396,8 +399,9 @@ bool ec_mbox_smbus_i2c_get_data(unsigned char uCommand, int *pReadLength, unsign
 		if (*pReadLength >= 0x100)
 			*pReadLength = 0x100;
 
-		if (ec_mbox_read_buffer_ram(*pReadLength, pReadBuffer) < 0)
+		if (!ec_mbox_read_buffer_ram(*pReadLength, pReadBuffer)) {
 			goto ErrorReturn;
+		}
 		goto Exit;
 
 	case EC_MBOX_SMBUS_WRITE_QUICK:
@@ -412,7 +416,7 @@ bool ec_mbox_smbus_i2c_get_data(unsigned char uCommand, int *pReadLength, unsign
 
 	for (i = 0; i < *pReadLength; i++)
 	{
-		if (ec_mbox_get_value((unsigned char)EC_MBOX_DAT_OFFSET(i + 4), &pReadBuffer[i]) < 0)
+		if (!ec_mbox_get_value((unsigned char)EC_MBOX_DAT_OFFSET(i + 4), &pReadBuffer[i]))
 			goto ErrorReturn;
 	}
 
@@ -807,30 +811,27 @@ int ec_mbox_smbus_i2c(unsigned char uDeviceID, unsigned char uCommand, unsigned 
     // SuperIO Mutex Protection Start
 	mutex_lock(&EC_SuperIOMutex);
 
-    if (ec_wait_mbox_cmd_clear() < 0)
+    if (!ec_wait_mbox_cmd_clear())
         goto ErrorReturn;
 
-    if (ec_mbox_set_value(EC_MBOX_PARA_OFFSET, uDeviceID) < 0)
-        goto ErrorReturn;
+    ec_mbox_set_value(EC_MBOX_PARA_OFFSET, uDeviceID);
+    ec_mbox_set_value((unsigned char) EC_MBOX_DAT_OFFSET(0), (unsigned char)uSlavAddr);
+    ec_mbox_set_value((unsigned char) EC_MBOX_DAT_OFFSET(1), uSMBCommand);
 
-    if (ec_mbox_set_value((unsigned char) EC_MBOX_DAT_OFFSET(0), (unsigned char)uSlavAddr) < 0)
-        goto ErrorReturn;
-
-    if (ec_mbox_set_value((unsigned char) EC_MBOX_DAT_OFFSET(1), uSMBCommand) < 0)
-        goto ErrorReturn;
-
-	if (ec_mbox_smbus_i2c_set_data(uCommand, uWriteLength, pWriteBuffer, pReadLength, pReadBuffer) < 0)
+	if (!ec_mbox_smbus_i2c_set_data(uCommand, uWriteLength, pWriteBuffer, pReadLength, pReadBuffer)) {
 		goto ErrorReturn;
+	}
 
 	// Start transmit
-	if (ec_mbox_set_value(EC_MBOX_CMD_OFFSET, uCommand) < 0)
-		goto ErrorReturn;
+	ec_mbox_set_value(EC_MBOX_CMD_OFFSET, uCommand);
 
-    if (ec_wait_mbox_cmd_clear() < 0)
+    if (!ec_wait_mbox_cmd_clear()) {
         goto ErrorReturn;
+	}
 
-	if (ec_mbox_get_value(EC_MBOX_STATUS_OFFSET, &uStatus) < 0)
+	if (!ec_mbox_get_value(EC_MBOX_STATUS_OFFSET, &uStatus)) {
 		goto ErrorReturn;
+	}
 
 	if (uStatus != 0x80)
 	{
@@ -840,8 +841,9 @@ int ec_mbox_smbus_i2c(unsigned char uDeviceID, unsigned char uCommand, unsigned 
 
 	if (*pReadLength !=0 && pReadBuffer != NULL) 
 	{
-		if (ec_mbox_smbus_i2c_get_data(uCommand, pReadLength, pReadBuffer) < 0)
+		if (!ec_mbox_smbus_i2c_get_data(uCommand, pReadLength, pReadBuffer)) {
 			goto ErrorReturn;
+		}
 	}
 
     // SuperIO Mutex Protection End
@@ -1123,8 +1125,10 @@ int ec_eeprom_get_security_key(unsigned char *pKey)
 		return EINVAL;
 	}
 	for (i = 0; i < EC_LOCK_KEY_SIZE; i++) {
-		if (ec_eeprom_get_value(EC_EEPROM_OEM_BLOCK, EC_LOCK_KEY_OFFSET + i, &pKey[i]) < 0)
+		if (!ec_eeprom_get_value(EC_EEPROM_OEM_BLOCK, EC_LOCK_KEY_OFFSET + i, &pKey[i])) {
+			printk(KERN_ERR "Error: get value error! \n\n");
 			break;
+		}
 	}
 
 	return 0;
@@ -1139,7 +1143,7 @@ int ec_eeprom_set_security_key(unsigned char *pKey)
 		return EINVAL;
 	}
 	for (i = 0; i < EC_LOCK_KEY_SIZE; i++) {
-		if (ec_eeprom_set_value(EC_EEPROM_OEM_BLOCK, EC_LOCK_KEY_OFFSET + i, pKey[i]) < 0)
+		if (!ec_eeprom_set_value(EC_EEPROM_OEM_BLOCK, EC_LOCK_KEY_OFFSET + i, pKey[i]))
 			break;
 	}
 
@@ -1155,8 +1159,8 @@ bool ec_eeprom_set_value(unsigned char uBlock, unsigned char uOffset, unsigned c
     }
 
 	/* Initialize EC EEPROM [SuperIO Mutex] */
-    if (ec_init_eeprom(uBlock, uOffset) < 0) {
-		return -1;
+    if (!ec_init_eeprom(uBlock, uOffset)) {
+		return false;
 	}
 
     // SuperIO Mutex Protection Start
@@ -1256,7 +1260,7 @@ int ec_eeprom_set_protect(peeprom_protect_data pProtectData)
 	}
 
 	for (i = 0; i < EC_EEPROM_BYTE_PROTECT_OFFSET_COUNT; i++) {
-		if (ec_eeprom_set_value(EC_EEPROM_INFO_BLOCK, EC_INFO_DATA_BYTE_PROTECT_OFFSET + i, uLockByte) < 0) {
+		if (!ec_eeprom_set_value(EC_EEPROM_INFO_BLOCK, EC_INFO_DATA_BYTE_PROTECT_OFFSET + i, uLockByte)) {
 			printk(KERN_WARNING "ec_eeprom_set_value failed offset:0x%x\n", i);
 			break;
 		}
@@ -1484,7 +1488,7 @@ int ec_barcode_eeprom_set_security_key(unsigned short uSlavAddr, unsigned char *
 		unsigned char i;
 		// 0xA2 can only be wrote by ec_eeprom_set_value / EcEepromBlockWrite
 		for (i = 0; i < EC_LOCK_KEY_SIZE; i++) {
-			if (ec_eeprom_set_value(EC_EEPROM_OEM_BLOCK, keyOffset + i, pKey[i]) < 0) {
+			if (!ec_eeprom_set_value(EC_EEPROM_OEM_BLOCK, keyOffset + i, pKey[i])) {
 				status = -1;
 				break;
 			}
@@ -1517,10 +1521,17 @@ static long ec_eeprom_ioctl(struct file* filp, unsigned int cmd, unsigned long a
 	unsigned char tmpOffset = 0;
 	int i = 0, j = 0, RWCount, CurrentLength;
 
+#ifdef  TEST_PRINTK
+	printk("%s:%d: Enter ec_eeprom_ioctl. \n", __func__, __LINE__);
+	printk("%s:%d: IOCTL_COMMON_EC_I2C_TRANSFER:0x%lX \n", __func__, __LINE__, IOCTL_COMMON_EC_I2C_TRANSFER);
+#endif
 	switch ( cmd ) 
 	{
 	case IOCTL_COMMON_EC_I2C_TRANSFER:
 	{
+#ifdef  TEST_PRINTK
+		printk("%s:%d: Enter the ec_eeprom_ioctl cmd IOCTL_COMMON_EC_I2C_TRANSFER. \n", __func__, __LINE__);
+#endif
 		// 1. Retrieve an I/O request's input buffer.
 		if (copy_from_user(&EcI2cData, (ec_i2c_data __user *)arg, sizeof(ec_i2c_data))) {
 			printk(KERN_ERR "Error: copy_from_user() \n");
@@ -1774,10 +1785,287 @@ delay_1s();
 	default:
 		return -EINVAL;
 	}
-
 	return 0;
 }
 
+static long ec_eeprom_compat_ioctl(struct file* filp, unsigned int cmd, unsigned long arg )
+{
+	ec_i2c_data EcI2cData = {0};
+	ec_barcode_eeprom_protect_data EepromProtData = {0};
+	eeprom_config EepromConfig = {0};
+	unsigned char tmpStr[64] = {0};
+	unsigned long ulIsLock = 0;
+	unsigned char tmpOffset = 0;
+	int i = 0, j = 0, RWCount, CurrentLength;
+#ifdef  TEST_PRINTK
+	printk("%s:%d: [Debug]Enter ec_eeprom_compat_ioctl. \n", __func__, __LINE__);
+	printk("%s:%d: IOCTL_COMMON_EC_I2C_TRANSFER:0x%lX \n", __func__, __LINE__, IOCTL_COMMON_EC_I2C_TRANSFER);
+#endif
+	switch ( cmd ) 
+	{
+	case IOCTL_COMMON_EC_I2C_TRANSFER:
+	{
+#ifdef  TEST_PRINTK
+		printk("%s:%d: Enter the ec_eeprom_ioctl cmd IOCTL_COMMON_EC_I2C_TRANSFER. \n", __func__, __LINE__);
+#endif
+		// 1. Retrieve an I/O request's input buffer.
+		if (copy_from_user(&EcI2cData, (ec_i2c_data __user *)arg, sizeof(ec_i2c_data))) {
+			printk(KERN_ERR "Error: copy_from_user() \n");
+			return -EFAULT;
+		} else {
+#ifdef QATEST
+delay_1s();
+printk("EcI2cData.DeviceID:0x%X \n", (int)EcI2cData.DeviceID);
+printk("EcI2cData.Address:0x%X \n", (int)EcI2cData.Address);
+printk("EcI2cData.ReadLength:%d \n", (int)EcI2cData.ReadLength);
+printk("EcI2cData.WriteLength:%d \n", (int)EcI2cData.WriteLength);
+printk("EcI2cData.WriteBuffer[0]:0x%X \n", EcI2cData.WriteBuffer[0]);
+printk("EcI2cData.length:%d \n", EcI2cData.length);
+delay_1s();
+#endif
+			// 2. Check Output buffer length
+			if (EcI2cData.ReadLength > I2C_SMBUS_USE_MAX || EcI2cData.WriteLength > I2C_SMBUS_USE_MAX) {
+				printk(KERN_ERR "Eeprom read/write length out of range! \n");
+				return -EINVAL;
+			}
+			if (EcI2cData.WriteBuffer[0] > 0xFF) {
+				printk(KERN_ERR "Set offset value out of range (0x00~0xFF) ! \n");
+				return -EINVAL;
+			}
+			if ((EcI2cData.WriteBuffer[0] + EcI2cData.length) > 256) {
+				printk(KERN_ERR "Set value out of range (offset+length<=256) ! \n");
+				return -EINVAL;
+			}
+			// 3. Check if a valid DeviceID
+			switch(EcI2cData.DeviceID) 
+			{
+			case EC_DID_SMBEEPROM:
+			case EC_DID_SMBOEM0:
+			case EC_DID_SMBOEM1:
+			case EC_DID_SMBOEM2:
+			case EC_DID_I2COEM1:
+				break;
+			default:
+				printk(KERN_ERR "Set wrong DeviceID! \n");
+				return -EINVAL;
+			}
+
+			// 4. Check permission
+			// The restricted area (password zone), disable R/W access
+			if (EcI2cData.DeviceID == EC_DID_SMBEEPROM) {
+				if (EcI2cData.Address == EC_BARCODE_EEPROM0_BANK(1) ||
+						EcI2cData.Address == EC_BARCODE_EEPROM1_BANK(1)) {
+					printk(KERN_ERR "Set wrong address(address: %u)! \n", EcI2cData.Address);
+					return -EFAULT;
+				}
+			}
+			if (EcI2cData.DeviceID == EC_DID_SMBEEPROM && EcI2cData.WriteLength > 1) {
+				if (EcI2cData.Address == EC_BARCODE_EEPROM0_BANK(0) ||
+						EcI2cData.Address == EC_BARCODE_EEPROM0_BANK(2) ||
+						EcI2cData.Address == EC_BARCODE_EEPROM0_BANK(3) ||
+						EcI2cData.Address == EC_BARCODE_EEPROM1_BANK(0) ||
+						EcI2cData.Address == EC_BARCODE_EEPROM1_BANK(2) ||
+						EcI2cData.Address == EC_BARCODE_EEPROM1_BANK(3)) { 
+					if (ec_barcode_eeprom_check_is_locked(EcI2cData.Address, &ulIsLock) < 0) {
+						printk(KERN_ERR "Check bank(address: %u) error! \n", EcI2cData.Address);
+						return -EFAULT;
+					}
+					if (ulIsLock) {
+						printk(KERN_ERR "Bank(address: %u) is locked! \n", EcI2cData.Address);
+						return -EACCES;
+					}
+				}
+			}
+
+			memset(tmpStr, 0, 64);
+			CurrentLength = 0;
+			if (!EcI2cData.isRead) {
+				// Write eeprom
+				tmpStr[0] = EcI2cData.WriteBuffer[0];
+				RWCount = 1;
+				if (EcI2cData.length <= I2C_SMBUS_WRITE_MAX) {
+					tmpOffset = I2C_SMBUS_WRITE_MAX - (EcI2cData.WriteBuffer[0]%I2C_SMBUS_WRITE_MAX);
+					if (tmpOffset > EcI2cData.length) {
+						tmpOffset = EcI2cData.length;
+					}
+#ifdef QATEST
+					printk("I2C_SMBUS_WRITE_MAX: %d \n",  I2C_SMBUS_WRITE_MAX);
+					printk("EcI2cData.WriteBuffer[0]: %d \n", EcI2cData.WriteBuffer[0]);
+					printk("tmpOffset: %d \n", tmpOffset);
+#endif
+					if (tmpOffset != 0 && tmpOffset != I2C_SMBUS_WRITE_MAX) {
+						for (j = 1; j <= tmpOffset; j++) {
+							tmpStr[j] = EcI2cData.WriteBuffer[RWCount];
+#ifdef QATEST
+							printk("RWCount:%d, tmpStr[%d]:0x%X \n", RWCount, j, tmpStr[j]);
+#endif
+							RWCount++;
+						}
+						ec_i2c_do_transfer(EcI2cData.DeviceID, EcI2cData.Address, (tmpOffset + 1),
+								tmpStr, EcI2cData.ReadLength, EcI2cData.ReadBuffer);
+						tmpStr[0] = EcI2cData.WriteBuffer[0] + tmpOffset;
+						for (j = 1; j <= (EcI2cData.WriteLength - tmpOffset - 1); j++) {
+							tmpStr[j] = EcI2cData.WriteBuffer[RWCount];
+#ifdef QATEST
+							printk("RWCount:%d, tmpStr[%d]:0x%X \n", RWCount, j, tmpStr[j]);
+#endif
+							RWCount++;
+						}
+						ec_i2c_do_transfer(EcI2cData.DeviceID, EcI2cData.Address, (EcI2cData.WriteLength - tmpOffset),
+								tmpStr, EcI2cData.ReadLength, EcI2cData.ReadBuffer);
+					} else {
+						ec_i2c_do_transfer(EcI2cData.DeviceID, EcI2cData.Address, EcI2cData.WriteLength, 
+								EcI2cData.WriteBuffer, EcI2cData.ReadLength, EcI2cData.ReadBuffer);
+					}
+				} else {
+					tmpOffset = I2C_SMBUS_WRITE_MAX - (EcI2cData.WriteBuffer[0]%I2C_SMBUS_WRITE_MAX);
+					if (tmpOffset != 0 && tmpOffset != I2C_SMBUS_WRITE_MAX) {
+						for (j = 1; j <= tmpOffset; j++) {
+							tmpStr[j] = EcI2cData.WriteBuffer[RWCount];
+							RWCount++;
+						}
+						ec_i2c_do_transfer(EcI2cData.DeviceID, EcI2cData.Address, (tmpOffset + 1),
+								tmpStr, EcI2cData.ReadLength, EcI2cData.ReadBuffer);
+						tmpStr[0] = EcI2cData.WriteBuffer[0] + tmpOffset;
+					} else {
+						tmpOffset = 0;
+					}
+					CurrentLength = I2C_SMBUS_WRITE_MAX;
+					for (i = 0; i < (EcI2cData.length - tmpOffset); i+=I2C_SMBUS_WRITE_MAX) {
+						CurrentLength = (EcI2cData.length - tmpOffset - i) >= I2C_SMBUS_WRITE_MAX ? I2C_SMBUS_WRITE_MAX : (EcI2cData.length - tmpOffset - i);
+#ifdef QATEST
+						printk("CurrentLength: %d \n", CurrentLength);
+#endif
+						for (j = 1; j <= CurrentLength; j++) {
+							tmpStr[j] = EcI2cData.WriteBuffer[RWCount];
+							RWCount++;
+						}
+						ec_i2c_do_transfer(EcI2cData.DeviceID, EcI2cData.Address, (CurrentLength + 1), 
+								tmpStr, EcI2cData.ReadLength, EcI2cData.ReadBuffer);
+#ifdef QATEST
+						for (j = 0; j <= CurrentLength; j++) {
+							if (j == CurrentLength) {
+								printk("%02X\n", tmpStr[j]);
+							} else {
+								printk("%02X ", tmpStr[j]);
+							}
+						}
+#endif
+						tmpStr[0] += CurrentLength;
+					}
+				}
+			} else {
+				// Read eeprom
+				tmpStr[0] = EcI2cData.WriteBuffer[0];
+				RWCount = EcI2cData.length;
+				if (EcI2cData.length <= I2C_SMBUS_BLOCK_MAX) {
+					ec_i2c_do_transfer(EcI2cData.DeviceID, EcI2cData.Address, EcI2cData.WriteLength, 
+							EcI2cData.WriteBuffer, EcI2cData.ReadLength, EcI2cData.ReadBuffer);
+				} else {
+					CurrentLength = I2C_SMBUS_BLOCK_MAX;
+					for (i = 0; i < EcI2cData.length; i+=I2C_SMBUS_BLOCK_MAX) {
+						CurrentLength = (EcI2cData.length - i) >= I2C_SMBUS_BLOCK_MAX ? I2C_SMBUS_BLOCK_MAX : (EcI2cData.length - i);
+						ec_i2c_do_transfer(EcI2cData.DeviceID, EcI2cData.Address, EcI2cData.WriteLength, 
+								tmpStr, CurrentLength, &(EcI2cData.ReadBuffer[i]));
+#ifdef QATEST
+						for (j = 0; j < CurrentLength; j++) {
+							if (j == CurrentLength - 1) {
+								printk("%02X\n", EcI2cData.ReadBuffer[i+j]);
+							} else {
+								printk("%02X ", EcI2cData.ReadBuffer[i+j]);
+							}
+						}
+#endif
+						tmpStr[0] += CurrentLength;
+					}
+				}
+			}
+
+			// 5. Start Transfter
+			if (EcI2cData.ReadLength > 0 || EcI2cData.length > 0) {
+				// 5. Retrieve an I/O request's output buffer.
+				if (copy_to_user((ec_i2c_data __user *)arg, &EcI2cData, sizeof(ec_i2c_data))) {
+					printk(KERN_ERR "Error: copy_to_user() \n");
+					return -EFAULT;
+				}
+			} 
+		}
+		break;
+	}
+
+	case IOCTL_COMMON_EC_BARCODE_EEPROM_SET_PROTECT:
+		// 1. Retrieve an I/O request's input buffer.
+		if (copy_from_user(&EepromProtData, (ec_barcode_eeprom_protect_data __user *)arg, 
+					sizeof(ec_barcode_eeprom_protect_data))) {
+			printk(KERN_ERR "Error: copy_from_user() \n");
+			return -EFAULT;
+		} else {
+			// 2. Check Input buffer length
+			// 3. Check slave address
+			if (EepromProtData.SlaveAddress != EC_BARCODE_EEPROM0_BANK(0) &&
+					EepromProtData.SlaveAddress != EC_BARCODE_EEPROM0_BANK(2) &&
+					EepromProtData.SlaveAddress != EC_BARCODE_EEPROM0_BANK(3) &&
+					EepromProtData.SlaveAddress != EC_BARCODE_EEPROM1_BANK(0) &&
+					EepromProtData.SlaveAddress != EC_BARCODE_EEPROM1_BANK(2) &&
+					EepromProtData.SlaveAddress != EC_BARCODE_EEPROM1_BANK(3) ) { 
+				printk(KERN_ERR "Check bank(slave address: %u) error! \n", EepromProtData.SlaveAddress);
+				return -EFAULT;
+			}
+
+			// 4. Set Protect/UnProtect
+			if (ec_barcode_eeprom_set_protect(&EepromProtData)) {
+				printk(KERN_ERR "Error: ec_barcode_eeprom_set_protect() \n");
+				return -EFAULT;
+			}
+		}
+		break;
+
+	case IOCTL_COMMON_EC_BARCODE_EEPROM_GET_CONFIG:
+		// 1. Retrieve an I/O request's input buffer.
+		if (copy_from_user(&EepromConfig, (eeprom_config __user *)arg, sizeof(eeprom_config))) {
+			printk(KERN_ERR "Error: copy_from_user() \n");
+			return -EFAULT;
+		} else {
+			// 2. Depends on ID to get value
+			switch(EepromConfig.uID) {
+			case EC_ID_BARCODE_PAGE_SIZE:
+				EepromConfig.uValue = EC_BARCODE_EEPROM_PAGE_SIZE;
+				break;
+			case EC_ID_BARCODE_EEPROM0_LOCK_STATUS0:
+			case EC_ID_BARCODE_EEPROM0_LOCK_STATUS1:
+			case EC_ID_BARCODE_EEPROM0_LOCK_STATUS2:
+			case EC_ID_BARCODE_EEPROM1_LOCK_STATUS0:
+			case EC_ID_BARCODE_EEPROM1_LOCK_STATUS1:
+			case EC_ID_BARCODE_EEPROM1_LOCK_STATUS2:
+				if (ec_barcode_eeprom_check_is_locked((unsigned short)(EepromConfig.uID), &(EepromConfig.uValue)) < 0) {
+					printk(KERN_ERR "Error: copy_to_user() \n");
+					return -EACCES;
+				}
+				break;
+			case EC_ID_BARCODE_PSW_MAX_LEN:
+				EepromConfig.uValue = EC_LOCK_KEY_SIZE;
+				break;
+			default:
+				return -EINVAL;
+			}
+
+			// 3. Retrieve an I/O request's output buffer.
+			if (copy_to_user((eeprom_config __user *)arg, &EepromConfig, sizeof(eeprom_config))) {
+				printk(KERN_ERR "Error: copy_to_user() \n");
+				return -EFAULT;
+			} 
+		}
+		break;
+
+	default:
+		printk("%s:%d: [Debug] No cmd switch \n", __func__, __LINE__);
+		return -EINVAL;
+	}
+#ifdef  TEST_PRINTK
+	printk("Exit compat_ioctl. \n");
+#endif
+	return 0;
+}
 
 static int ec_eeprom_open(struct inode *inode, struct file *file)
 {
@@ -1814,6 +2102,7 @@ static struct file_operations ec_eeprom_fops = {
 #else
 	unlocked_ioctl: ec_eeprom_ioctl,
 #endif
+	compat_ioctl:  ec_eeprom_compat_ioctl,
 	read:		ec_eeprom_read,
 	write:		ec_eeprom_write,
 	open:		ec_eeprom_open,
@@ -1858,5 +2147,6 @@ int ec_eeprom_init (void)
 module_init( ec_eeprom_init );
 module_exit( ec_eeprom_cleanup );
 
-MODULE_DESCRIPTION("Advantech EC EEPROM Driver.");
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Advantech EC EEPROM Driver.");
+MODULE_VERSION(ADVANTECH_EC_EEPROM_VER);

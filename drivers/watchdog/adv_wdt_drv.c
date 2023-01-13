@@ -53,8 +53,24 @@
  *              - Support EC TPC-5???W-6??AE
  *              Version 1.09 <03/20/2018> Ji.Xu
  *              - Support for compiling in kernel-4.10 and below.
- *              Version 1.10 <10/11/2018> Ji.Xu
+ *              Version 1.10 <02/20/2019> Ji.Xu
  *              - Support EC UNO-420
+ *              - Support EC TPC-B200-???AE
+ *              - Support EC TPC-2???T-???AE
+ *              - Support EC TPC-2???W-???AE
+ *              Version 1.11 <08/30/2019> Yao.Kang
+ *              - Support 32-bit programs on 64-bit kernel
+ *              - Support support UNO-2372G watchdog
+ *              Version 1.12 <04/24/2020> Yao.Kang
+ *              - Support support UNO-2473G
+ *              Version 1.13 <07/21/2020> Yao.Kang
+ *              - Support support UNO-3272
+ *              Version 1.14 <05/24/2021> pengcheng.du
+ *              - Support support UNO-137-E1
+ *              - Support support UNO-410-E1
+ *              - Support support WISE-5580
+ *              Version 1.15 <12/27/2021> Chic.Lee
+ *              - compatible with ubuntu watchdog service
  -----------------------------------------------------------------------------*/
 
 #include <linux/version.h>
@@ -73,6 +89,7 @@
 #include <linux/ioport.h>
 #include <linux/fcntl.h>
 #include <linux/version.h>
+#include <linux/ioctl.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4, 10, 0)
@@ -98,8 +115,8 @@
 #define DEBUGPRINT(a, ...)
 #endif
 
-#define ADVANTECH_EC_WDT_VER        "1.10"
-#define ADVANTECH_EC_WDT_DATE       "10/11/2018"
+#define ADVANTECH_EC_WDT_VER        "1.15"
+#define ADVANTECH_EC_WDT_DATE       "12/27/2021"
 
 static unsigned long advwdt_is_open;
 static unsigned short timeout = 450;
@@ -229,13 +246,18 @@ static int wdt_proc_write(struct file *file, const char __user *buffer, size_t c
 	return count;  
 }  
 #endif
-
+#ifdef HAVE_PROC_OPS
+static const struct proc_ops proc_fops = {
+  .proc_open = wdt_proc_open,
+  .proc_read = seq_read,
+};
+#else
 static struct file_operations proc_fops = {  
 	.open  = wdt_proc_open,  
 	.read  = seq_read,  
 //	.write = wdt_proc_write,        
 };  
-
+#endif 
 int wdt_create_proc(char *name)  
 {  
 	struct proc_dir_entry *wdt_proc_entries;  
@@ -331,6 +353,15 @@ advwdt_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 	if (ppos != &file->f_pos)
 		return -ESPIPE;
 #endif
+	//compatible with ubuntu watchdog service. chic added 12/27/2021
+	if(wdt_data[0].is_enable[0] == 'Y' && wdt_data[0].is_enable[1] == 'e' && wdt_data[0].is_enable[2] == 's')
+	{
+		if (write_hwram_command(EC_WDT_RESET))
+		{
+				printk("Failed to set Watchdog reset.\n");
+				return -EINVAL;
+		}
+	}
 	return count;
 }
 
@@ -416,12 +447,154 @@ options:            WDIOF_KEEPALIVEPING | WDIOF_SETTIMEOUT | WDIOF_MAGICCLOSE,
 		break;
 
 	case WDIOC_SETTIMEOUT:
-		if (get_user( new_timeout, (unsigned long *)arg))
+		if (get_user( new_timeout, p))
 		{
 			mutex_unlock(&lock_ioctl);
 			return -EFAULT;
 		}
 		if( advwdt_set_heartbeat(new_timeout) )   
+		{
+			printk("Advantch WDT: the input timeout is out of range.\n");
+			printk("Please choose valid data between 1 ~ 6553.\n");
+			// printk("Because an unit means 0.1 seconds, data 100 is 10 seconds.\n");
+			mutex_unlock(&lock_ioctl);
+
+			return -EINVAL; 
+		}
+		else
+		{
+			// if (set_delay((unsigned short)(new_timeout-1)))
+			if (set_delay((unsigned short)(timeout-1)))
+			{
+				printk("Falied to set Watchdog delay.\n");
+				return -EINVAL;
+			}
+			if ( write_hwram_command(EC_WDT_START))
+			{
+				printk("Failed to set Watchdog start.\n");
+				return -EINVAL;
+			}
+			wdt_data[0].is_enable[0] = 'Y';
+			wdt_data[0].is_enable[1] = 'e';
+			wdt_data[0].is_enable[2] = 's';
+		}
+		wdt_data[0].current_timeout = timeout/10;
+		break;
+
+	case WDIOC_GETTIMEOUT: 
+		if( timeout==0 )   	   
+		{
+			mutex_unlock(&lock_ioctl);
+			return -EFAULT;
+		}   
+		mutex_unlock(&lock_ioctl);
+		// return put_user( timeout, (unsigned long *)arg);
+		return put_user( timeout/10, (unsigned long *)arg);
+
+	case WDIOC_SETOPTIONS:	
+		{
+			int options;
+			if (get_user(options, p))
+			{
+				mutex_unlock(&lock_ioctl);
+				return -EFAULT;
+			}
+			if (options & WDIOS_DISABLECARD) 
+			{
+				if (write_hwram_command(EC_WDT_STOP))
+				{
+					printk("Failed to set Watchdog stop.\n");
+					return -EINVAL;
+				}
+				wdt_data[0].is_enable[0] = 'N';
+				wdt_data[0].is_enable[1] = 'o';
+				wdt_data[0].is_enable[2] = '\0';
+			}
+			if (options & WDIOS_ENABLECARD) 
+			{
+				if ( write_hwram_command(EC_WDT_STOP))
+				{
+					printk("Failed to set Watchdog stop.\n");
+					return -EINVAL;
+				}
+				if (set_delay((unsigned short)(timeout-1)))
+				{
+					printk("Failed to set Watchdog delay.\n");
+					return -EINVAL;
+				}
+				if ( write_hwram_command(EC_WDT_START))
+				{
+					printk("Failed to set Watchdog start.\n");
+					return -EINVAL;
+				}
+				wdt_data[0].is_enable[0] = 'Y';
+				wdt_data[0].is_enable[1] = 'e';
+				wdt_data[0].is_enable[2] = 's';
+			}
+			mutex_unlock(&lock_ioctl);
+			return 0;
+		}
+
+	default:
+		mutex_unlock(&lock_ioctl);
+		return -ENOTTY;
+	}
+	mutex_unlock(&lock_ioctl);
+	return 0;
+}
+
+static long advwdt_compat_ioctl(struct file *file, unsigned int cmd,unsigned long arg)
+{
+	unsigned long new_timeout;
+	void __user *argp = (void __user *)arg;
+	int __user *p = argp;
+
+	static struct watchdog_info ident = 
+	{
+options:            WDIOF_KEEPALIVEPING | WDIOF_SETTIMEOUT | WDIOF_MAGICCLOSE, 
+
+					firmware_version:     0,
+					identity:            "Advantech WDT"
+	};
+
+	mutex_lock(&lock_ioctl);
+	if(advwdt_is_open < 1)
+	{
+		printk("watchdog does not open.\n");
+		mutex_unlock(&lock_ioctl);
+		return -1;
+	}
+
+	switch ( cmd ) 
+	{
+	case WDIOC_GETSUPPORT:
+		if (copy_to_user(argp, &ident, sizeof(ident)))
+		{
+			mutex_unlock(&lock_ioctl);
+			return -EFAULT;
+		}
+		break;
+
+	case WDIOC_GETSTATUS:
+	case WDIOC_GETBOOTSTATUS:
+		mutex_unlock(&lock_ioctl);
+		return put_user(0, p);
+
+	case WDIOC_KEEPALIVE:
+		if (write_hwram_command(EC_WDT_RESET))
+		{
+			printk("Failed to set Watchdog reset.\n");
+			return -EINVAL;
+		}
+		break;
+
+	case WDIOC_SETTIMEOUT:
+		if (get_user( new_timeout, (unsigned long *)arg))
+		{
+			mutex_unlock(&lock_ioctl);
+			return -EFAULT;
+		}
+		if( advwdt_set_heartbeat(new_timeout & 0xffffffff))   
 		{
 			printk("Advantch WDT: the input timeout is out of range.\n");
 			printk("Please choose valid data between 1 ~ 6553.\n");
@@ -567,6 +740,7 @@ owner:		THIS_MODULE,
 #else
 			unlocked_ioctl: advwdt_ioctl,
 #endif
+			compat_ioctl: advwdt_compat_ioctl,
 			open:		advwdt_open,
 			release:	advwdt_close,
 };
@@ -634,24 +808,34 @@ static int __init advwdt_init(void)
 			&& (adspname_detect(BIOS_Product_Name,"TPC-1?82H-4???E")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-1372G-E?AE")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-1372G-J0?1AE")) 
+			&& (adspname_detect(BIOS_Product_Name,"UNO-137-E1")) 
+			&& (adspname_detect(BIOS_Product_Name,"UNO-410-E1")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-1483G-4??AE")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-2271G-E??AE")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-2271G-E???AE")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-420")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-2372G")) 
-			&& (adspname_detect(BIOS_Product_Name,"UNO-2473G-J?AE")) 
+			&& (adspname_detect(BIOS_Product_Name,"UNO-2372G-*")) 
+			&& (adspname_detect(BIOS_Product_Name,"UNO-2473G")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-2483G-4??AE")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-2484G-6???AE")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-2484G-7???AE")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-3083G/3085G-D??E")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-308?G-D??E")) 
 			&& (adspname_detect(BIOS_Product_Name,"UNO-3283G/3285G-674AE"))
+			&& (adspname_detect(BIOS_Product_Name,"FST-2482P"))
 			&& (adspname_detect(BIOS_Product_Name,"UNO-3483G-3??AE")) 
+			&& (adspname_detect(BIOS_Product_Name,"UNO-3272")) 
 			&& (adspname_detect(BIOS_Product_Name,"APAX-5580-4??AE"))
 			&& (adspname_detect(BIOS_Product_Name,"TPC-B500-6??AE"))
 			&& (adspname_detect(BIOS_Product_Name,"TPC-5???T-6??AE"))
 			&& (adspname_detect(BIOS_Product_Name,"TPC-5???W-6??AE"))
+			&& (adspname_detect(BIOS_Product_Name,"TPC-B200-???AE"))
+			&& (adspname_detect(BIOS_Product_Name,"TPC-2???T-???AE"))
+			&& (adspname_detect(BIOS_Product_Name,"TPC-2???W-???AE"))
+			&& (adspname_detect(BIOS_Product_Name,"TPC-300-?8??A"))
 			&& (adspname_detect(BIOS_Product_Name,"PR/VR4"))
+			&& (adspname_detect(BIOS_Product_Name,"WISE-5580"))
 			) {
 		printk(KERN_INFO "%s is not support EC watchdog!\n", BIOS_Product_Name);
 		return -ENODEV;
@@ -721,6 +905,6 @@ module_exit(advwdt_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Advantech EC Watchdog Driver.");
-
+MODULE_VERSION(ADVANTECH_EC_WDT_VER);
 
 

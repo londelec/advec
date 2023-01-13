@@ -24,6 +24,12 @@
  *              EC Common Driver Version 1.00 <05/11/2018> Ji.Xu
  *              - Initial version
  *              - Support UNO-1372G-J021AE/J031AE
+ *              EC Common Driver Version 1.01 <08/30/2019> Yao.Kang
+ *              - Support 32-bit programs on 64-bit kernel.
+ *              EC Common Driver Version 1.02 <05/24/2021> pengcheng.du
+ *              - Support UNO-137-E1
+ *              - Support UNO-410-E1
+ *              - Support WISE-5580
  -----------------------------------------------------------------------------*/
 
 #include <linux/version.h>
@@ -56,8 +62,8 @@
 #define IOCTL_EC_GET_STATUS			_IO(COMMON_MAGIC, 0xB1)
 #define IOCTL_EC_SET_STATUS			_IOW(COMMON_MAGIC, 0xB2, int)
 
-#define ADVANTECH_EC_COMMON_VER		"1.00"
-#define ADVANTECH_EC_COMMON_DATE	"05/11/2018" 
+#define ADVANTECH_EC_COMMON_VER		"1.02"
+#define ADVANTECH_EC_COMMON_DATE	"05/24/2021" 
 
 //#define DEBUG_MESSAGE
 //#define USE_CLASS
@@ -99,7 +105,7 @@ static int ioctl_oem_get_status(unsigned long pmsg)
 
 	return 0;
 }
-EXPORT_SYMBOL(ioctl_oem_get_status);
+//EXPORT_SYMBOL(ioctl_oem_get_status);
 
 static int ioctl_oem_set_status(unsigned long pmsg)
 {
@@ -116,13 +122,38 @@ static int ioctl_oem_set_status(unsigned long pmsg)
 
 	return 0;
 }
-EXPORT_SYMBOL(ioctl_oem_set_status);
+//EXPORT_SYMBOL(ioctl_oem_set_status);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
 static int adv_common_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 #else
 static long adv_common_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #endif
+{
+	int ret = -1;
+	mutex_lock(&lock_ioctl);
+
+	switch(cmd) 
+	{
+	case IOCTL_EC_GET_STATUS: 
+		ret = ioctl_oem_get_status(arg);
+		break;
+	case IOCTL_EC_SET_STATUS: 
+		ret = ioctl_oem_set_status(arg);
+		break;
+	default:
+		ret = -1;
+		break;
+	}
+
+	mutex_unlock(&lock_ioctl);
+	return ret;
+}
+
+static long adv_common_compat_ioctl (
+	struct file *file, 
+	unsigned int cmd, 
+	unsigned long arg )
 {
 	int ret = -1;
 	mutex_lock(&lock_ioctl);
@@ -171,6 +202,7 @@ owner:		THIS_MODULE,
 #else
 			unlocked_ioctl:	adv_common_ioctl,
 #endif
+			compat_ioctl:   adv_common_compat_ioctl,
 			read:		adv_common_read,
 			write:		adv_common_write,
 			open:		adv_common_open,
@@ -228,6 +260,9 @@ static int adv_common_init(void)
 	product = BIOS_Product_Name;
 	if ((adspname_detect(BIOS_Product_Name,"UNO-3283G/3285G-674AE")) 
 				&& (adspname_detect(BIOS_Product_Name,"UNO-1372G-J0?1AE"))
+				&& (adspname_detect(BIOS_Product_Name,"UNO-137-E1"))
+				&& (adspname_detect(BIOS_Product_Name,"UNO-410-E1"))
+				&& (adspname_detect(BIOS_Product_Name,"WISE-5580"))
 			) {
 		printk(KERN_INFO "%s is not support EC common!\n", BIOS_Product_Name);
 		return -ENODEV;
@@ -264,6 +299,8 @@ static int adv_common_init(void)
 module_init(adv_common_init);
 module_exit(adv_common_cleanup);
 
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("JiXu");
 MODULE_DESCRIPTION("Advantech EC COMMON Driver.");
+MODULE_VERSION(ADVANTECH_EC_COMMON_VER);

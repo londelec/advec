@@ -155,9 +155,11 @@
 #define EC_MBOX_SMBUS_READ_BLOCK						0x0B
 
 // Storage
-#define EC_MBOX_CMD_OFFSET			0x00							// Mailbox command
-#define EC_MBOX_STATUS_OFFSET		(EC_MBOX_CMD_OFFSET + 1)		// Command return status
-#define EC_MBOX_PARA_OFFSET			(EC_MBOX_CMD_OFFSET + 2)		// Parameter for command
+// Define in ec.h
+//#define EC_MBOX_CMD_OFFSET			0x00							// Mailbox command
+//#define EC_MBOX_STATUS_OFFSET		(EC_MBOX_CMD_OFFSET + 1)		// Command return status
+//#define EC_MBOX_PARA_OFFSET			(EC_MBOX_CMD_OFFSET + 2)		// Parameter for command
+
 #define EC_MBOX_DAT_OFFSET(n)		(EC_MBOX_CMD_OFFSET + 3 + (n))	// Data area. Dat00 ~ Dat2C
 #define EC_MBOX_CLEAR_256_BYTES_BUFFER					0xC0
 #define EC_MBOX_READ_256_BYTES_BUFFER					0xC1
