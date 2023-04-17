@@ -8,6 +8,17 @@ UNAME := $(shell uname -r)
 subdir := mfd-ec brightness gpio led common watchdog hwmon eeprom fan
 f75375sModule := /lib/modules/$(UNAME)/kernel/drivers/hwmon/f75375s.ko
 
+KERNEL_DIR := /home/dell/Documents/Code/linux
+export KERNEL_DIR
+
+ifneq ($(KERNELRELEASE),)
+# When building from kernel tree.
+# Don't build from advec source directory, because
+# ARCH=i386 has to be specified.
+# This command extracts "obj-m := xxx" from subdirectory Makefiles.
+obj-m := $(foreach N,$(subdir),$(N)/$(shell sed -n s/"obj-m :=[ ]*"//p $(KBUILD_EXTMOD)/$(N)/Makefile))
+endif
+
 default:
 	$(foreach N,$(subdir),make -C $(N);)
 
